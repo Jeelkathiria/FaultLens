@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #080B12;
+    color: #F8FAFC;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Modern Dark Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080B12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E2633;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2D394D;
+}
+
+/* Glassmorphism & Subtle Borders */
+.glass-panel {
+  background: rgba(15, 20, 29, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid #1E2633;
+}
+
+.card-hover-glow {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover-glow:hover {
+  border-color: #2D394D;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 15px -3px rgba(99, 102, 241, 0.12);
+}
+
+/* Recharts Custom Tooltip Styles */
+.recharts-default-tooltip {
+  background-color: #0F141D !important;
+  border: 1px solid #1E2633 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+  padding: 8px 12px !important;
+  color: #F8FAFC !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+}
+
+.recharts-tooltip-label {
+  color: #94A3B8 !important;
+  margin-bottom: 4px !important;
+  font-weight: 500 !important;
+}
+
+.recharts-cartesian-grid line {
+  stroke: #1E2633 !important;
+  stroke-opacity: 0.6;
+}
+
+/* Monospace code styling */
+code,
+pre,
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
