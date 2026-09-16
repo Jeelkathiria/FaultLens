@@ -113,70 +113,76 @@ export const WebsitesPage = () => {
 
       {/* Websites Grid View */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredWebsites.map((website) => {
-            return (
-              <div
-                key={website.id}
-                onClick={() => navigate(`/websites/${website.id}`)}
-                className="rounded-xl border border-[#1E2633] bg-[#0F141D] p-5 card-hover-glow cursor-pointer group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <StatusBadge status={website.health} />
-                    <EnvBadge env={website.environment} />
-                  </div>
+        filteredWebsites.length === 0 ? (
+          <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+            N/A - No websites available
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredWebsites.map((website) => {
+              return (
+                <div
+                  key={website.id}
+                  onClick={() => navigate(`/websites/${website.id}`)}
+                  className="rounded-xl border border-[#1E2633] bg-[#0F141D] p-5 card-hover-glow cursor-pointer group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <StatusBadge status={website.health || 'healthy'} />
+                      <EnvBadge env={website.environment || 'production'} />
+                    </div>
 
-                  <div className="mb-4">
-                    <h3 className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center justify-between">
-                      <span>{website.name}</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                    </h3>
-                    <div className="text-xs font-mono text-slate-400 mt-0.5">{website.displayUrl}</div>
-                  </div>
+                    <div className="mb-4">
+                      <h3 className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center justify-between">
+                        <span>{website.name || 'N/A'}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                      </h3>
+                      <div className="text-xs font-mono text-slate-400 mt-0.5">{website.displayUrl || website.url || 'N/A'}</div>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-3 py-3 border-y border-[#1E2633] my-3">
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">APIs</div>
-                      <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
-                        {website.apiCount} APIs
+                    <div className="grid grid-cols-2 gap-3 py-3 border-y border-[#1E2633] my-3">
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">APIs</div>
+                        <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
+                          {website.apiCount !== undefined ? `${website.apiCount} APIs` : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">Uptime</div>
+                        <div
+                          className={`text-sm font-bold font-mono mt-0.5 ${
+                            (website.uptime || 0) > 99
+                              ? 'text-emerald-400'
+                              : (website.uptime || 0) > 95
+                              ? 'text-amber-400'
+                              : 'text-red-400'
+                          }`}
+                        >
+                          {formatUptime(website.uptime)}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">Uptime</div>
-                      <div
-                        className={`text-sm font-bold font-mono mt-0.5 ${
-                          website.uptime > 99
-                            ? 'text-emerald-400'
-                            : website.uptime > 95
-                            ? 'text-amber-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {formatUptime(website.uptime)}
+
+                    {website.activeIncidents > 0 && (
+                      <div className="mb-3 px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-1.5 font-medium">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>{website.activeIncidents} Active Incident</span>
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  {website.activeIncidents > 0 && (
-                    <div className="mb-3 px-2.5 py-1 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-1.5 font-medium">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      <span>{website.activeIncidents} Active Incident</span>
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
+                      <span>Uptime Timeline</span>
+                      <span>Last checked: {website.lastChecked || 'N/A'}</span>
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
-                    <span>Uptime Timeline</span>
-                    <span>Last checked: {website.lastChecked}</span>
+                    <UptimeBar history={website.uptimeHistory} barsCount={36} />
                   </div>
-                  <UptimeBar history={website.uptimeHistory} barsCount={36} />
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       ) : (
         /* List View */
         <div className="rounded-xl border border-[#1E2633] bg-[#0F141D] overflow-hidden">
@@ -193,40 +199,48 @@ export const WebsitesPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1E2633]">
-              {filteredWebsites.map((website) => (
-                <tr
-                  key={website.id}
-                  onClick={() => navigate(`/websites/${website.id}`)}
-                  className="hover:bg-[#141B26] transition-colors cursor-pointer"
-                >
-                  <td className="py-3 px-4">
-                    <div className="font-semibold text-slate-100">{website.name}</div>
-                    <div className="text-slate-400 font-mono text-[11px]">{website.displayUrl}</div>
-                  </td>
-                  <td className="py-3 px-4">
-                    <StatusBadge status={website.health} />
-                  </td>
-                  <td className="py-3 px-4 font-mono font-medium text-slate-200">
-                    {website.apiCount}
-                  </td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-200">
-                    {formatUptime(website.uptime)}
-                  </td>
-                  <td className="py-3 px-4 font-mono">
-                    {website.activeIncidents > 0 ? (
-                      <span className="text-red-400 font-semibold">{website.activeIncidents} active</span>
-                    ) : (
-                      <span className="text-slate-500">0</span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4 text-slate-400">{website.lastChecked}</td>
-                  <td className="py-3 px-4 text-right">
-                    <button className="text-indigo-400 hover:text-indigo-300 font-medium">
-                      View Details →
-                    </button>
+              {filteredWebsites.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center font-mono text-xs text-slate-500">
+                    N/A - No websites available
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredWebsites.map((website) => (
+                  <tr
+                    key={website.id}
+                    onClick={() => navigate(`/websites/${website.id}`)}
+                    className="hover:bg-[#141B26] transition-colors cursor-pointer"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-slate-100">{website.name || 'N/A'}</div>
+                      <div className="text-slate-400 font-mono text-[11px]">{website.displayUrl || website.url || 'N/A'}</div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge status={website.health || 'healthy'} />
+                    </td>
+                    <td className="py-3 px-4 font-mono font-medium text-slate-200">
+                      {website.apiCount !== undefined ? website.apiCount : 'N/A'}
+                    </td>
+                    <td className="py-3 px-4 font-mono font-bold text-slate-200">
+                      {formatUptime(website.uptime)}
+                    </td>
+                    <td className="py-3 px-4 font-mono">
+                      {website.activeIncidents > 0 ? (
+                        <span className="text-red-400 font-semibold">{website.activeIncidents} active</span>
+                      ) : (
+                        <span className="text-slate-500">0</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-slate-400">{website.lastChecked || 'N/A'}</td>
+                    <td className="py-3 px-4 text-right">
+                      <button className="text-indigo-400 hover:text-indigo-300 font-medium">
+                        View Details →
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

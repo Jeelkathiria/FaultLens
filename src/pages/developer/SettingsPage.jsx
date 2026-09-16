@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '../../context/ToastContext';
+import { useFaultLens } from '../../context/FaultLensContext';
+import api from '../../services/api';
 import {
   User,
   Shield,
@@ -14,21 +16,97 @@ import {
   Globe
 } from 'lucide-react';
 
+const PRESET_AVATARS = [
+  {
+    id: 'avatar-nexus',
+    name: 'Nexus Bot',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus&backgroundColor=1e1b4b'
+  },
+  {
+    id: 'avatar-circuit',
+    name: 'Circuit SRE',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Circuit&backgroundColor=064e3b'
+  },
+  {
+    id: 'avatar-glitch',
+    name: 'Glitch Ops',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Glitch&backgroundColor=831843'
+  },
+  {
+    id: 'avatar-vortex',
+    name: 'Vortex Dev',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Vortex&backgroundColor=1e293b'
+  },
+  {
+    id: 'avatar-byte',
+    name: 'Cyber Byte',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Cyber&backgroundColor=312e81'
+  },
+  {
+    id: 'avatar-quantum',
+    name: 'Quantum Core',
+    url: 'https://api.dicebear.com/7.x/bottts/svg?seed=Quantum&backgroundColor=0f172a'
+  }
+];
+
 export const SettingsPage = () => {
   const { addToast } = useToast();
+  const { currentUser, setCurrentUser } = useFaultLens();
   const [activeTab, setActiveTab] = useState('profile'); // profile | security | notifications | monitoring
 
   // Profile state
-  const [name, setName] = useState('Jeel Kathiria');
-  const [email, setEmail] = useState('jeel@faultlens.dev');
-  const [role, setRole] = useState('Senior Backend Engineer');
+  const [name, setName] = useState(currentUser?.name || 'Developer');
+  const [email, setEmail] = useState(currentUser?.email || 'dev@faultlens.dev');
+  const [role, setRole] = useState(currentUser?.role === 'ADMIN' ? 'Platform Administrator' : 'Senior Backend Engineer');
 
-  // Security state
-  const [apiKeys, setApiKeys] = useState([
-    { id: 'key-1', name: 'Production Telemetry Ingest', key: 'fl_live_948a92bb4f01c8', created: '2026-02-10', lastUsed: 'Just now' },
-    { id: 'key-2', name: 'Staging CI Agent', key: 'fl_stage_881c201a44e99b', created: '2026-04-14', lastUsed: '3 hours ago' }
-  ]);
+  const getInitialAvatar = () => {
+    const saved = currentUser?.photoURL || currentUser?.avatar || localStorage.getItem('faultlens_avatar');
+    if (saved && !saved.includes('unsplash.com')) {
+      return saved;
+    }
+    return PRESET_AVATARS[0].url;
+  };
+
+  const [avatar, setAvatar] = useState(getInitialAvatar);
+
+  useEffect(() => {
+    if (currentUser) {
+      if (currentUser.name) setName(currentUser.name);
+      if (currentUser.email) setEmail(currentUser.email);
+      if (currentUser.role) setRole(currentUser.role === 'ADMIN' ? 'Platform Administrator' : 'Senior Backend Engineer');
+      const userPic = currentUser.photoURL || currentUser.avatar;
+      if (userPic && !userPic.includes('unsplash.com')) {
+        setAvatar(userPic);
+      }
+    }
+  }, [currentUser]);
+
+  // Security state - API keys loaded from backend
+  const [apiKeys, setApiKeys] = useState([]);
+  const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadApiKeys() {
+      setIsLoadingKeys(true);
+      try {
+        const res = await api.get('/api-keys');
+        if (isMounted && res && Array.isArray(res)) {
+          setApiKeys(res);
+        }
+      } catch (err) {
+        console.error('Failed to load API keys:', err);
+      } finally {
+        if (isMounted) setIsLoadingKeys(false);
+      }
+    }
+
+    loadApiKeys();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Notifications state
   const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXX');
@@ -42,6 +120,17 @@ export const SettingsPage = () => {
   const [errorRateThresholdPct, setErrorRateThresholdPct] = useState(2.5);
 
   const handleSave = (section) => {
+    if (section === 'Profile' || section === 'Avatar') {
+      localStorage.setItem('faultlens_avatar', avatar);
+      if (setCurrentUser) {
+        setCurrentUser((prev) => ({
+          ...(prev || {}),
+          name,
+          photoURL: avatar,
+          avatar: avatar
+        }));
+      }
+    }
     addToast({
       title: 'Settings Saved',
       message: `${section} preferences updated successfully`,
@@ -49,29 +138,52 @@ export const SettingsPage = () => {
     });
   };
 
-  const handleGenerateKey = () => {
-    const newKey = {
-      id: `key-${Date.now()}`,
-      name: 'New Integration Key',
-      key: `fl_live_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 8)}`,
-      created: 'Today',
-      lastUsed: 'Never'
-    };
-    setApiKeys(prev => [newKey, ...prev]);
-    addToast({
-      title: 'API Key Generated',
-      message: 'New secret key provisioned',
-      type: 'success'
-    });
+  const handleGenerateKey = async () => {
+    const keyName = window.prompt('Enter a name for this API Key:', 'Production Telemetry Key');
+    if (!keyName) return;
+
+    try {
+      const res = await api.post('/api-keys', { name: keyName });
+      if (res) {
+        const newKey = {
+          id: res.id,
+          name: res.name,
+          key: res.rawKey || res.keyPrefix,
+          created: 'Just now',
+          lastUsed: 'Never'
+        };
+        setApiKeys((prev) => [newKey, ...prev]);
+        addToast({
+          title: 'API Key Generated',
+          message: 'New secret key provisioned successfully',
+          type: 'success'
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: 'Error Generating Key',
+        message: err.message || 'Failed to create API key',
+        type: 'error'
+      });
+    }
   };
 
-  const handleDeleteKey = (id) => {
-    setApiKeys(prev => prev.filter(k => k.id !== id));
-    addToast({
-      title: 'API Key Revoked',
-      message: 'Revoked key credentials',
-      type: 'info'
-    });
+  const handleDeleteKey = async (id) => {
+    try {
+      await api.delete(`/api-keys/${id}`);
+      setApiKeys((prev) => prev.filter((k) => k.id !== id));
+      addToast({
+        title: 'API Key Revoked',
+        message: 'Revoked key credentials',
+        type: 'info'
+      });
+    } catch (err) {
+      addToast({
+        title: 'Error Revoking Key',
+        message: err.message || 'Failed to revoke API key',
+        type: 'error'
+      });
+    }
   };
 
   return (
@@ -127,21 +239,85 @@ export const SettingsPage = () => {
               <p className="text-xs text-slate-400 mt-0.5">Update your display information and workspace handle</p>
             </div>
 
-            <div className="flex items-center gap-4 py-2">
-              <img
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=128&h=128&fit=crop&crop=face"
-                alt="Jeel"
-                className="w-16 h-16 rounded-full border-2 border-indigo-500/40"
-              />
+            {/* Avatar Selector Section */}
+            <div className="p-4 rounded-xl bg-[#080B12] border border-[#1E2633] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E2633]/60">
+                <div className="flex items-center gap-3.5">
+                  <div className="relative">
+                    <img
+                      src={avatar}
+                      alt="Active Avatar"
+                      className="w-14 h-14 rounded-full border-2 border-indigo-500 shadow-md shadow-indigo-500/20 object-cover"
+                    />
+                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080B12]" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-100 flex items-center gap-2">
+                      <span>Selected Avatar</span>
+                      <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                        Active Profile
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Pick any of the 6 avatars below to customize your team presence
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6 Avatar Presets */}
               <div>
-                <button
-                  type="button"
-                  onClick={() => handleSave('Avatar')}
-                  className="px-3 py-1.5 rounded-lg bg-[#080B12] hover:bg-slate-800 border border-[#1E2633] text-xs font-semibold text-slate-200 transition-colors"
-                >
-                  Change Avatar
-                </button>
-                <div className="text-[11px] text-slate-500 mt-1">JPG, GIF or PNG. Max size of 2MB</div>
+                <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-2.5">
+                  Choose Avatar Preset
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
+                  {PRESET_AVATARS.map((item) => {
+                    const isSelected = avatar === item.url;
+                    return (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => {
+                          setAvatar(item.url);
+                          localStorage.setItem('faultlens_avatar', item.url);
+                          if (setCurrentUser) {
+                            setCurrentUser((prev) => ({
+                              ...(prev || {}),
+                              photoURL: item.url,
+                              avatar: item.url
+                            }));
+                          }
+                          addToast({
+                            title: 'Avatar Selected',
+                            message: `${item.name} set as profile picture`,
+                            type: 'success'
+                          });
+                        }}
+                        className={`group relative flex flex-col items-center p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600/15 border-indigo-500 ring-2 ring-indigo-500/40 shadow-sm'
+                            : 'bg-[#0F141D] border-[#1E2633] hover:border-slate-600 hover:bg-[#151D2A]'
+                        }`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={item.url}
+                            alt={item.name}
+                            className="w-12 h-12 rounded-full object-cover border border-[#1E2633] group-hover:scale-105 transition-transform"
+                          />
+                          {isSelected && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-indigo-600 border-2 border-[#0F141D] flex items-center justify-center shadow-xs">
+                              <Check className="w-2.5 h-2.5 text-white stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-medium text-slate-300 mt-1.5 truncate max-w-full text-center">
+                          {item.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -166,14 +342,27 @@ export const SettingsPage = () => {
               </div>
             </div>
 
+            {/* Email Address - View Only (Cannot be changed) */}
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">Email Address</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-slate-300">
+                  Email Address <span className="text-[11px] text-slate-500 font-normal ml-1">(View only)</span>
+                </label>
+                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-slate-400 bg-[#080B12] px-2 py-0.5 rounded border border-[#1E2633]">
+                  <Lock className="w-3 h-3 text-slate-400" />
+                  Locked
+                </span>
+              </div>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                readOnly
+                disabled
+                className="w-full px-3.5 py-2.5 rounded-lg bg-[#080B12]/60 border border-[#1E2633] text-sm text-slate-400 cursor-not-allowed select-none font-mono focus:outline-none"
               />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Email address is bound to your account and cannot be modified.
+              </p>
             </div>
 
             <div className="pt-4 border-t border-[#1E2633] flex justify-end">
@@ -209,39 +398,45 @@ export const SettingsPage = () => {
               </div>
 
               <div className="space-y-2">
-                {apiKeys.map((key) => (
-                  <div
-                    key={key.id}
-                    className="p-3.5 rounded-lg bg-[#080B12] border border-[#1E2633] flex items-center justify-between gap-4 font-mono text-xs"
-                  >
-                    <div>
-                      <div className="font-semibold text-slate-200 font-sans">{key.name}</div>
-                      <div className="text-slate-400 mt-0.5 text-[11px]">{key.key}</div>
-                      <div className="text-[10px] text-slate-500 font-sans mt-1">
-                        Created {key.created} • Last active: {key.lastUsed}
+                {apiKeys.length === 0 ? (
+                  <div className="p-6 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-lg bg-[#080B12]">
+                    {isLoadingKeys ? 'Loading API keys...' : 'No active ingest keys provisioned yet. Click "Generate New Key" to create one.'}
+                  </div>
+                ) : (
+                  apiKeys.map((key) => (
+                    <div
+                      key={key.id}
+                      className="p-3.5 rounded-lg bg-[#080B12] border border-[#1E2633] flex items-center justify-between gap-4 font-mono text-xs"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-200 font-sans">{key.name}</div>
+                        <div className="text-slate-400 mt-0.5 text-[11px]">{key.key}</div>
+                        <div className="text-[10px] text-slate-500 font-sans mt-1">
+                          Created {key.created} • Last active: {key.lastUsed}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(key.key);
+                            addToast({ title: 'Copied', message: 'API Key copied to clipboard', type: 'info' });
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-slate-200 rounded"
+                          title="Copy Key"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteKey(key.id)}
+                          className="p-1.5 text-red-400 hover:text-red-300 rounded"
+                          title="Revoke Key"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(key.key);
-                          addToast({ title: 'Copied', message: 'API Key copied to clipboard', type: 'info' });
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-slate-200 rounded"
-                        title="Copy Key"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteKey(key.id)}
-                        className="p-1.5 text-red-400 hover:text-red-300 rounded"
-                        title="Revoke Key"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 

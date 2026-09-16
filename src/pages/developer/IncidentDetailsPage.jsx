@@ -25,6 +25,23 @@ export const IncidentDetailsPage = () => {
 
   const incident = incidents.find(i => i.id === incidentId) || incidents[0];
 
+  if (!incident) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to="/incidents"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors mb-3"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Incidents</span>
+        </Link>
+        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+          N/A - Incident not found or no incident records available.
+        </div>
+      </div>
+    );
+  }
+
   const handleStatusChange = (newStatus) => {
     updateIncidentStatus(incident.id, newStatus);
   };
@@ -50,29 +67,35 @@ export const IncidentDetailsPage = () => {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-xs font-bold text-red-400 tracking-wider">
-                  INCIDENT {incident.number}
+                  INCIDENT {incident.number || 'N/A'}
                 </span>
                 <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700">
-                  {incident.apiName}
+                  {incident.apiName || 'N/A'}
                 </span>
-                <StatusBadge status={incident.severity} />
+                <StatusBadge status={incident.severity || 'healthy'} />
               </div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-1.5">
-                {incident.title}
+                {incident.title || 'N/A'}
               </h1>
               <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
-                <span>Domain: {incident.websiteName}</span>
+                <span>Domain: {incident.websiteName || 'N/A'}</span>
                 <span>•</span>
-                <span>Detected: {incident.detectedAt}</span>
+                <span>Detected: {incident.detectedAt || 'N/A'}</span>
                 <span>•</span>
-                <span>Active duration: {incident.duration}</span>
+                <span>Active duration: {incident.duration || 'N/A'}</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate(`/websites/${incident.websiteId}/apis/${incident.apiId}`)}
+              onClick={() => {
+                if (incident.websiteId && incident.apiId) {
+                  navigate(`/websites/${incident.websiteId}/apis/${incident.apiId}`);
+                } else {
+                  navigate('/websites');
+                }
+              }}
               className="px-4 py-2 rounded-lg bg-[#080B12] hover:bg-slate-800 border border-[#1E2633] text-slate-200 text-xs font-semibold transition-all flex items-center gap-1.5"
             >
               <span>Inspect API Telemetry</span>
@@ -91,7 +114,7 @@ export const IncidentDetailsPage = () => {
             <TrendingUp className="w-4 h-4" />
           </div>
           <div className="text-2xl font-bold font-mono text-red-400">
-            {incident.metrics?.errorRateBefore || '1.2%'} → <span className="underline decoration-wavy">{incident.metrics?.errorRateCurrent || '17.8%'}</span>
+            {incident.metrics?.errorRateBefore || 'N/A'} → <span className="underline decoration-wavy">{incident.metrics?.errorRateCurrent || 'N/A'}</span>
           </div>
           <div className="text-[11px] text-slate-400 mt-1.5 font-sans">
             Baseline normal to current 5xx rate
@@ -105,7 +128,7 @@ export const IncidentDetailsPage = () => {
             <Clock className="w-4 h-4" />
           </div>
           <div className="text-2xl font-bold font-mono text-amber-300">
-            {incident.metrics?.latencyBefore || '210ms'} → {incident.metrics?.latencyCurrent || '2.8s'}
+            {incident.metrics?.latencyBefore || 'N/A'} → {incident.metrics?.latencyCurrent || 'N/A'}
           </div>
           <div className="text-[11px] text-slate-400 mt-1.5 font-sans">
             +1,230% tail response degradation
@@ -118,7 +141,7 @@ export const IncidentDetailsPage = () => {
             Detected
           </div>
           <div className="text-2xl font-bold font-mono text-slate-100">
-            {incident.detectedAt}
+            {incident.detectedAt || 'N/A'}
           </div>
           <div className="text-[11px] text-slate-400 mt-1.5 font-sans">
             Automated anomaly trigger
@@ -131,7 +154,7 @@ export const IncidentDetailsPage = () => {
             Duration
           </div>
           <div className="text-2xl font-bold font-mono text-slate-100">
-            {incident.duration}
+            {incident.duration || 'N/A'}
           </div>
           <div className="text-[11px] text-slate-400 mt-1.5 font-sans">
             Continuous regression window

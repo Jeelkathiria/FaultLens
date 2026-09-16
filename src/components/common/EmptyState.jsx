@@ -3,8 +3,8 @@ import { Inbox } from 'lucide-react';
 
 export const EmptyState = ({
   icon: Icon = Inbox,
-  title = 'No items found',
-  description = 'There are no records matching your current filter criteria.',
+  title = 'N/A - No items available',
+  description = 'No records are currently available (N/A).',
   actionLabel,
   onAction
 }) => {

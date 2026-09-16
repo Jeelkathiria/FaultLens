@@ -10,6 +10,7 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { LandingPage } from './pages/public/LandingPage';
 import { LoginPage } from './pages/public/LoginPage';
 import { RegisterPage } from './pages/public/RegisterPage';
+import { NotFoundPage } from './pages/public/NotFoundPage';
 
 // Developer Pages
 import { DashboardPage } from './pages/developer/DashboardPage';
@@ -33,7 +34,7 @@ export function App() {
   return (
     <ToastProvider>
       <FaultLensProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -59,10 +60,13 @@ export function App() {
               <Route path="/admin/websites" element={<AdminWebsitesPage />} />
               <Route path="/admin/incidents" element={<AdminIncidentsPage />} />
               <Route path="/admin/system-health" element={<AdminSystemHealthPage />} />
+
+              {/* Catch-all unknown routes inside dashboard */}
+              <Route path="/dashboard/*" element={<NotFoundPage inDashboard={true} />} />
             </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Global Fallback for unknown URLs */}
+            <Route path="*" element={<NotFoundPage inDashboard={false} />} />
           </Routes>
         </BrowserRouter>
       </FaultLensProvider>

@@ -1,0 +1,230 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  DEVELOPER
+  ADMIN
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+  DEVELOPMENT
+}
+
+enum IncidentStatus {
+  DETECTED
+  INVESTIGATING
+  MITIGATED
+  RESOLVED
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(DEVELOPER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  websites     Website[]
+  apiKeys      ApiKey[]
+
+  @@map("users")
+}
+
+model Website {
+  id          String      @id @default(uuid())
+  userId      String
+  name        String
+  url         String
+  environment Environment @default(PRODUCTION)
+  status      String      @default("healthy") // healthy, degraded, critical
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apis        Api[]
+  deployments Deployment[]
+
+  @@map("websites")
+}
+
+model Api {
+  id                  String            @id @default(uuid())
+  websiteId           String
+  name                String
+  endpoint            String
+  method              String            @default("GET")
+  healthCheckEndpoint String?
+  monitoringInterval  String            @default("60s")
+  status              String            @default("healthy") // healthy, degraded, critical
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  website             Website           @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  requestMetrics      RequestMetric[]
+  metricAggregates    MetricAggregate[]
+  anomalies           Anomaly[]
+  incidents           Incident[]
+  deployments         Deployment[]
+  logs                Log[]
+
+  @@map("apis")
+}
+
+model RequestMetric {
+  id           String   @id @default(uuid())
+  apiId        String
+  timestamp    DateTime @default(now())
+  statusCode   Int
+  responseTime Int      // milliseconds
+  method       String
+  endpoint     String
+  errorMessage String?
+
+  api          Api      @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@index([apiId, timestamp])
+  @@map("request_metrics")
+}
+
+model MetricAggregate {
+  id               String   @id @default(uuid())
+  apiId            String
+  timestamp        DateTime @default(now())
+  requestCount     Int      @default(0)
+  errorCount       Int      @default(0)
+  clientErrorCount Int      @default(0)
+  serverErrorCount Int      @default(0)
+  avgLatency       Float    @default(0)
+  p50              Float    @default(0)
+  p95              Float    @default(0)
+  p99              Float    @default(0)
+
+  api              Api      @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@index([apiId, timestamp])
+  @@map("metric_aggregates")
+}
+
+model Anomaly {
+  id            String     @id @default(uuid())
+  apiId         String
+  metricType    String     // ERROR_RATE, LATENCY, REQUEST_VOLUME, UPTIME
+  detectedValue Float
+  baselineValue Float
+  deviation     Float
+  detectedAt    DateTime   @default(now())
+  severity      String     // critical, warning
+  status        String     @default("OPEN")
+
+  api           Api        @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  incidents     Incident[]
+
+  @@index([apiId, detectedAt])
+  @@map("anomalies")
+}
+
+model Incident {
+  id             String         @id @default(uuid())
+  apiId          String
+  anomalyId      String?
+  title          String
+  description    String
+  severity       String         @default("critical") // critical, warning, resolved
+  status         IncidentStatus @default(DETECTED)
+  detectedAt     DateTime       @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  api            Api            @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  anomaly        Anomaly?       @relation(fields: [anomalyId], references: [id], onDelete: SetNull)
+  events         IncidentEvent[]
+
+  @@index([apiId, status])
+  @@map("incidents")
+}
+
+model IncidentEvent {
+  id         String   @id @default(uuid())
+  incidentId String
+  type       String   // deployment, warning, anomaly, incident, action, resolved
+  message    String
+  timestamp  DateTime @default(now())
+  metadata   Json?
+
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, timestamp])
+  @@map("incident_events")
+}
+
+model Deployment {
+  id          String   @id @default(uuid())
+  websiteId   String
+  apiId       String?
+  version     String
+  commitHash  String
+  branch      String   @default("main")
+  environment String   @default("PRODUCTION")
+  deployedAt  DateTime @default(now())
+  status      String   @default("stable") // stable, incident, rolled-back
+  message     String?
+  author      String?
+
+  website     Website  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  api         Api?     @relation(fields: [apiId], references: [id], onDelete: SetNull)
+
+  @@index([websiteId, deployedAt])
+  @@index([apiId, deployedAt])
+  @@map("deployments")
+}
+
+model Log {
+  id         String   @id @default(uuid())
+  apiId      String
+  timestamp  DateTime @default(now())
+  level      LogLevel @default(INFO)
+  message    String
+  statusCode Int?
+  metadata   Json?
+
+  api        Api      @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@index([apiId, timestamp])
+  @@index([level])
+  @@map("logs")
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  userId     String
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
+}

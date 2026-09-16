@@ -19,7 +19,7 @@ import {
 import { useFaultLens } from '../../context/FaultLensContext';
 
 export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
-  const { role, switchRole, incidents } = useFaultLens();
+  const { role, switchRole, incidents, currentUser } = useFaultLens();
   const navigate = useNavigate();
 
   const activeIncidentsCount = incidents.filter(i => i.severity !== 'resolved' && i.status !== 'resolved').length;
@@ -191,17 +191,25 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
           title="Click to switch role (Developer ↔ Admin)"
         >
           <div className="relative shrink-0">
-            <img
-              src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop&crop=face"
-              alt="Jeel"
-              className="w-8 h-8 rounded-full border border-[#1E2633] object-cover"
-            />
+            {(() => {
+              const pic = currentUser?.photoURL || currentUser?.avatar || localStorage.getItem('faultlens_avatar');
+              const avatarSrc = pic && !pic.includes('unsplash.com') ? pic : 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus&backgroundColor=1e1b4b';
+              return (
+                <img
+                  src={avatarSrc}
+                  alt={currentUser?.name || "User"}
+                  className="w-8 h-8 rounded-full border border-[#1E2633] object-cover bg-slate-900"
+                />
+              );
+            })()}
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0F141D]" />
           </div>
 
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-slate-200 truncate">Jeel Kathiria</div>
+              <div className="text-xs font-semibold text-slate-200 truncate">
+                {currentUser?.name || 'Jeel Kathiria'}
+              </div>
               <div className="text-[11px] text-slate-400 capitalize flex items-center gap-1">
                 <span>{role === 'admin' ? 'Admin' : 'Developer'}</span>
                 <span className="text-[9px] text-indigo-400 bg-indigo-500/10 px-1 py-0.2 rounded border border-indigo-500/20">

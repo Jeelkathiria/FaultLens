@@ -32,37 +32,45 @@ export const AdminIncidentsPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1E2633]">
-            {incidents.map((inc) => (
-              <tr key={inc.id} className="hover:bg-[#141B26] transition-colors">
-                <td className="py-3.5 px-5">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-red-400 font-bold">{inc.number}</span>
-                    <span className="font-semibold text-slate-100">{inc.title}</span>
-                  </div>
-                </td>
-                <td className="py-3.5 px-5">
-                  <span className="font-mono text-slate-300 font-semibold">{inc.apiName}</span>
-                  <span className="text-[11px] text-slate-500 block font-mono">({inc.websiteName})</span>
-                </td>
-                <td className="py-3.5 px-5">
-                  <StatusBadge status={inc.severity} size="xs" />
-                </td>
-                <td className="py-3.5 px-5 font-mono capitalize text-indigo-400 font-semibold">
-                  {inc.status}
-                </td>
-                <td className="py-3.5 px-5 font-mono text-slate-400">
-                  {inc.detectedAt} ({inc.timeAgo})
-                </td>
-                <td className="py-3.5 px-5 text-right">
-                  <button
-                    onClick={() => navigate(`/incidents/${inc.id}`)}
-                    className="text-indigo-400 hover:text-indigo-300 font-semibold"
-                  >
-                    View Details →
-                  </button>
+            {incidents.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-10 text-center font-mono text-xs text-slate-500">
+                  N/A - No platform incidents detected. All services operating normally.
                 </td>
               </tr>
-            ))}
+            ) : (
+              incidents.map((inc) => (
+                <tr key={inc.id} className="hover:bg-[#141B26] transition-colors">
+                  <td className="py-3.5 px-5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-red-400 font-bold">{inc.number || 'N/A'}</span>
+                      <span className="font-semibold text-slate-100">{inc.title || 'N/A'}</span>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <span className="font-mono text-slate-300 font-semibold">{inc.apiName || 'N/A'}</span>
+                    <span className="text-[11px] text-slate-500 block font-mono">({inc.websiteName || 'N/A'})</span>
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <StatusBadge status={inc.severity || 'healthy'} size="xs" />
+                  </td>
+                  <td className="py-3.5 px-5 font-mono capitalize text-indigo-400 font-semibold">
+                    {inc.status || 'N/A'}
+                  </td>
+                  <td className="py-3.5 px-5 font-mono text-slate-400">
+                    {inc.detectedAt || 'N/A'} ({inc.timeAgo || 'N/A'})
+                  </td>
+                  <td className="py-3.5 px-5 text-right">
+                    <button
+                      onClick={() => navigate(`/incidents/${inc.id}`)}
+                      className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                    >
+                      View Details →
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

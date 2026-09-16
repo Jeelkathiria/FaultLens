@@ -74,11 +74,18 @@ export const AdminUsersPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1E2633]">
-              {filteredUsers.map((user) => {
-                const isActive = user.status === 'Active';
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center font-mono text-xs text-slate-500">
+                    N/A - No platform users found
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((user) => {
+                  const isActive = user.status === 'Active';
 
-                return (
-                  <tr key={user.id} className="hover:bg-[#141B26] transition-colors">
+                  return (
+                    <tr key={user.id} className="hover:bg-[#141B26] transition-colors">
                     <td className="py-3 px-5">
                       <div className="flex items-center gap-3">
                         <img
@@ -137,7 +144,7 @@ export const AdminUsersPage = () => {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

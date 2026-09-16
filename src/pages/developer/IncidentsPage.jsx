@@ -102,8 +102,8 @@ export const IncidentsPage = () => {
         {filteredIncidents.length === 0 ? (
           <EmptyState
             icon={CheckCircle2}
-            title="No Incidents Match Filters"
-            description="All monitored API endpoints are operating within normal baseline SLA thresholds."
+            title="N/A - No Incidents Available"
+            description="All monitored API endpoints are operating within normal baseline SLA thresholds (N/A)."
             actionLabel="View All"
             onAction={() => {
               setActiveFilter('ALL');
@@ -148,35 +148,40 @@ export const IncidentsPage = () => {
                   <div>
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="font-mono text-xs font-bold text-slate-300 group-hover:text-indigo-300 transition-colors">
-                        {incident.number}
+                        {incident.number || 'N/A'}
                       </span>
                       <span className="text-xs font-mono text-slate-400 font-semibold px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">
-                        {incident.apiName}
+                        {incident.apiName || 'N/A'}
                       </span>
-                      <StatusBadge status={incident.severity} size="xs" />
+                      <StatusBadge status={incident.severity || 'healthy'} size="xs" />
                       {incident.correlatedDeployment && (
                         <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          Correlated with {incident.correlatedDeployment.version}
+                          Correlated with {incident.correlatedDeployment.version || 'release'}
                         </span>
                       )}
                     </div>
 
                     <h3 className="text-sm font-semibold text-slate-100 mt-1.5 group-hover:text-white transition-colors">
-                      {incident.title}
+                      {incident.title || 'N/A'}
                     </h3>
 
-                    <p className="text-xs text-slate-400 mt-1 font-mono">{incident.summary}</p>
+                    <p className="text-xs text-slate-400 mt-1 font-mono">{incident.summary || 'N/A'}</p>
                   </div>
                 </div>
 
                 {/* Right: Metrics & Time */}
                 <div className="flex items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 border-[#1E2633]">
-                  {incident.metrics && (
+                  {incident.metrics ? (
                     <div className="text-left md:text-right font-mono text-xs">
                       <div className="text-[10px] text-slate-500 uppercase tracking-wider">Metric Jump</div>
                       <div className="text-red-400 font-bold mt-0.5">
-                        {incident.metrics.errorRateBefore} → {incident.metrics.errorRateCurrent}
+                        {incident.metrics.errorRateBefore || 'N/A'} → {incident.metrics.errorRateCurrent || 'N/A'}
                       </div>
+                    </div>
+                  ) : (
+                    <div className="text-left md:text-right font-mono text-xs">
+                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">Metric Jump</div>
+                      <div className="text-slate-400 font-bold mt-0.5">N/A</div>
                     </div>
                   )}
 
@@ -185,7 +190,7 @@ export const IncidentsPage = () => {
                       <Clock className="w-3 h-3" />
                       <span>Detected</span>
                     </div>
-                    <div className="text-slate-300 mt-0.5 font-semibold">{incident.timeAgo}</div>
+                    <div className="text-slate-300 mt-0.5 font-semibold">{incident.timeAgo || 'N/A'}</div>
                   </div>
 
                   <div className="p-2 rounded-lg bg-slate-800/60 text-slate-400 group-hover:text-slate-200 group-hover:bg-slate-800 transition-colors shrink-0">

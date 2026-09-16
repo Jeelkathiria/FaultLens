@@ -140,67 +140,73 @@ export const DashboardPage = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {websites.map((website) => {
-            return (
-              <div
-                key={website.id}
-                onClick={() => navigate(`/websites/${website.id}`)}
-                className="rounded-xl border border-[#1E2633] bg-[#0F141D] p-5 card-hover-glow cursor-pointer group flex flex-col justify-between"
-              >
-                <div>
-                  {/* Top Bar: Health Badge & Env */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <StatusBadge status={website.health} />
-                    <EnvBadge env={website.environment} />
-                  </div>
+        {websites.length === 0 ? (
+          <div className="p-8 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+            N/A - No websites available
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {websites.map((website) => {
+              return (
+                <div
+                  key={website.id}
+                  onClick={() => navigate(`/websites/${website.id}`)}
+                  className="rounded-xl border border-[#1E2633] bg-[#0F141D] p-5 card-hover-glow cursor-pointer group flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Top Bar: Health Badge & Env */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <StatusBadge status={website.health || 'healthy'} />
+                      <EnvBadge env={website.environment || 'production'} />
+                    </div>
 
-                  {/* Title & Domain */}
-                  <div className="mb-4">
-                    <h3 className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center justify-between">
-                      <span>{website.name}</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                    </h3>
-                    <div className="text-xs font-mono text-slate-400 mt-0.5">{website.displayUrl}</div>
-                  </div>
+                    {/* Title & Domain */}
+                    <div className="mb-4">
+                      <h3 className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors flex items-center justify-between">
+                        <span>{website.name || 'N/A'}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                      </h3>
+                      <div className="text-xs font-mono text-slate-400 mt-0.5">{website.displayUrl || website.url || 'N/A'}</div>
+                    </div>
 
-                  {/* Uptime and API stats */}
-                  <div className="grid grid-cols-2 gap-3 py-3 border-y border-[#1E2633] my-3">
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">APIs Monitored</div>
-                      <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
-                        {website.apiCount} APIs
+                    {/* Uptime and API stats */}
+                    <div className="grid grid-cols-2 gap-3 py-3 border-y border-[#1E2633] my-3">
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">APIs Monitored</div>
+                        <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
+                          {website.apiCount !== undefined ? `${website.apiCount} APIs` : 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">Rolling Uptime</div>
+                        <div
+                          className={`text-sm font-bold font-mono mt-0.5 ${
+                            (website.uptime || 0) > 99
+                              ? 'text-emerald-400'
+                              : (website.uptime || 0) > 95
+                              ? 'text-amber-400'
+                              : 'text-red-400'
+                          }`}
+                        >
+                          {formatUptime(website.uptime)}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">Rolling Uptime</div>
-                      <div
-                        className={`text-sm font-bold font-mono mt-0.5 ${
-                          website.uptime > 99
-                            ? 'text-emerald-400'
-                            : website.uptime > 95
-                            ? 'text-amber-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {formatUptime(website.uptime)}
-                      </div>
-                    </div>
                   </div>
-                </div>
 
-                {/* 90-day mini uptime bar */}
-                <div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
-                    <span>90-Day History</span>
-                    <span>{website.lastChecked}</span>
+                  {/* 90-day mini uptime bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
+                      <span>90-Day History</span>
+                      <span>{website.lastChecked || 'N/A'}</span>
+                    </div>
+                    <UptimeBar history={website.uptimeHistory} barsCount={32} />
                   </div>
-                  <UptimeBar history={website.uptimeHistory} barsCount={32} />
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,18 +4,11 @@ import { useFaultLens } from '../../context/FaultLensContext';
 import {
   Menu,
   Bell,
-  Search,
-  Zap,
-  Activity,
-  ChevronRight,
-  Shield,
-  Play,
-  Pause,
-  AlertTriangle
+  ChevronRight
 } from 'lucide-react';
 
 export const Topbar = ({ onOpenMobileNav }) => {
-  const { role, switchRole, isLiveSimulation, toggleLiveSimulation, triggerAnomalyDemo, incidents } = useFaultLens();
+  const { role, switchRole, incidents } = useFaultLens();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -89,41 +82,8 @@ export const Topbar = ({ onOpenMobileNav }) => {
         </nav>
       </div>
 
-      {/* Right: Actions & Live Simulation Controls */}
+      {/* Right: Actions & Role Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Simulate Outage Action button (Demo tool) */}
-        <button
-          onClick={triggerAnomalyDemo}
-          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold transition-all"
-          title="Simulate Payment API spike & Incident #1042 creation"
-        >
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>Simulate Outage</span>
-        </button>
-
-        {/* Live Simulation Toggle Pill */}
-        <button
-          onClick={toggleLiveSimulation}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-            isLiveSimulation
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-lg shadow-emerald-500/10'
-              : 'bg-[#080B12] text-slate-400 border-[#1E2633] hover:text-slate-200 hover:border-slate-700'
-          }`}
-          title="Toggle real-time telemetry fluctuations & live log stream"
-        >
-          <span className="relative flex h-2 w-2">
-            {isLiveSimulation && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            )}
-            <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                isLiveSimulation ? 'bg-emerald-400' : 'bg-slate-500'
-              }`}
-            />
-          </span>
-          <span>Live Simulation {isLiveSimulation ? '●' : '○'}</span>
-        </button>
-
         {/* Role Switcher Pill */}
         <div className="hidden sm:flex items-center p-0.5 rounded-lg bg-[#080B12] border border-[#1E2633]">
           <button

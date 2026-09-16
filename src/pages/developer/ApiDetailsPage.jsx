@@ -32,6 +32,23 @@ export const ApiDetailsPage = () => {
   const website = websites.find(w => w.id === websiteId) || websites[0];
   const api = apis.find(a => a.id === apiId) || apis[0];
 
+  if (!api) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to={website ? `/websites/${website.id}` : '/websites'}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors mb-3"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to {website?.name || 'Websites'}</span>
+        </Link>
+        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+          N/A - API endpoint not found or no API data available.
+        </div>
+      </div>
+    );
+  }
+
   // Correlated incident (e.g. #1042 for Payment API)
   const correlatedIncident = incidents.find(i => i.apiId === api.id && i.severity !== 'resolved' && i.status !== 'resolved');
 
@@ -40,30 +57,30 @@ export const ApiDetailsPage = () => {
       {/* Top Breadcrumb & Navigation */}
       <div>
         <Link
-          to={`/websites/${website.id}`}
+          to={website ? `/websites/${website.id}` : '/websites'}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors mb-3"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to {website.name}</span>
+          <span>Back to {website?.name || 'Websites'}</span>
         </Link>
 
         {/* API Header Banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-xl border border-[#1E2633] bg-[#0F141D]">
           <div className="flex items-start sm:items-center gap-4">
             <div className="p-3 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 shrink-0">
-              <MethodBadge method={api.method} size="md" />
+              <MethodBadge method={api.method || 'GET'} size="md" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{api.name}</h1>
-                <StatusBadge status={api.status} />
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{api.name || 'N/A'}</h1>
+                <StatusBadge status={api.status || 'healthy'} />
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
-                <span className="text-slate-200 font-semibold">{api.endpoint}</span>
+                <span className="text-slate-200 font-semibold">{api.endpoint || 'N/A'}</span>
                 <span>•</span>
-                <span>Health check: {api.healthCheckEndpoint}</span>
+                <span>Health check: {api.healthCheckEndpoint || 'N/A'}</span>
                 <span>•</span>
-                <span>Interval: {api.monitoringInterval}</span>
+                <span>Interval: {api.monitoringInterval || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -152,13 +169,13 @@ export const ApiDetailsPage = () => {
           </p>
         </div>
 
-        <AnomalyErrorChart />
+        <AnomalyErrorChart apiId={api?.id} />
       </div>
 
       {/* Latency Percentiles & Request Volume Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <LatencyPercentilesChart />
-        <RequestVolumeChart />
+        <LatencyPercentilesChart apiId={api?.id} />
+        <RequestVolumeChart apiId={api?.id} />
       </div>
 
       {/* Endpoint Performance Breakdown Table */}
@@ -166,9 +183,11 @@ export const ApiDetailsPage = () => {
         <div className="p-5 border-b border-[#1E2633] flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-100">Sub-Endpoint Performance Breakdown</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Route-level distribution for {api.name}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Route-level distribution for {api?.name || 'API'}</p>
           </div>
-          <span className="text-xs font-mono text-slate-400">3 sub-routes profiled</span>
+          <span className="text-xs font-mono text-slate-400">
+            {(api?.endpointsTable?.length || (api ? 1 : 0))} routes profiled
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -183,11 +202,15 @@ export const ApiDetailsPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1E2633] font-mono">
-              {(api.endpointsTable || [
-                { endpoint: 'POST /payment', requests: 12430, errorRate: '18.2%', p95: '2.9s', status: 500 },
-                { endpoint: 'GET /payment', requests: 8240, errorRate: '2.1%', p95: '410ms', status: 200 },
-                { endpoint: 'POST /refund', requests: 4760, errorRate: '4.8%', p95: '620ms', status: 200 },
-              ]).map((row, idx) => {
+              {(api?.endpointsTable || (api ? [
+                {
+                  endpoint: `${api.method || 'GET'} ${api.endpoint || '/'}`,
+                  requests: api.requestsCount || 0,
+                  errorRate: `${api.errorRate || 0}%`,
+                  p95: `${api.p95Latency || 0}ms`,
+                  status: (api.errorRate || 0) > 10 ? 500 : 200
+                }
+              ] : [])).map((row, idx) => {
                 const isHighError = parseFloat(row.errorRate) > 10;
                 return (
                   <tr key={idx} className="hover:bg-[#141B26] transition-colors">

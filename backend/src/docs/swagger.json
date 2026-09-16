@@ -1,0 +1,186 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "FaultLens API",
+    "version": "1.0.0",
+    "description": "Production API Monitoring, Anomaly Detection & Incident Correlation Platform",
+    "contact": {
+      "name": "Jeel Kathiria",
+      "email": "jeel@faultlens.dev"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "responses": {
+          "200": { "description": "System is healthy" }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "User created" } }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Log in and obtain JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Successful login" } }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Profile info" } }
+      }
+    },
+    "/api/v1/telemetry": {
+      "post": {
+        "summary": "Ingest raw telemetry event from monitored service",
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["apiId", "statusCode", "responseTime", "endpoint"],
+                "properties": {
+                  "apiId": { "type": "string" },
+                  "statusCode": { "type": "integer" },
+                  "responseTime": { "type": "number" },
+                  "method": { "type": "string" },
+                  "endpoint": { "type": "string" },
+                  "errorMessage": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "202": { "description": "Telemetry ingested" } }
+      }
+    },
+    "/api/v1/websites": {
+      "get": {
+        "summary": "List monitored websites",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "List of websites" } }
+      },
+      "post": {
+        "summary": "Add a new monitored website",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "201": { "description": "Website created" } }
+      }
+    },
+    "/api/v1/incidents": {
+      "get": {
+        "summary": "List detected incidents",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "List of incidents" } }
+      }
+    },
+    "/api/v1/incidents/{id}/acknowledge": {
+      "post": {
+        "summary": "Acknowledge incident (moves to INVESTIGATING)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Incident updated" } }
+      }
+    },
+    "/api/v1/incidents/{id}/resolve": {
+      "post": {
+        "summary": "Resolve incident",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Incident resolved" } }
+      }
+    },
+    "/api/v1/deployments": {
+      "get": {
+        "summary": "List deployments",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "List of deployments" } }
+      }
+    },
+    "/api/v1/logs": {
+      "get": {
+        "summary": "List error and telemetry logs",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "Logs list" } }
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "summary": "Dashboard overview statistics",
+        "responses": { "200": { "description": "Dashboard summary" } }
+      }
+    },
+    "/api/v1/dashboard/metrics": {
+      "get": {
+        "summary": "Time-series throughput, error rates, and percentiles",
+        "responses": { "200": { "description": "Time series data" } }
+      }
+    },
+    "/api/v1/admin/system-health": {
+      "get": {
+        "summary": "Internal platform self-observability",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "System health" } }
+      }
+    }
+  }
+}

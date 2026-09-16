@@ -53,26 +53,34 @@ export const AdminWebsitesPage = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1E2633]">
-            {filtered.map(w => (
-              <tr key={w.id} className="hover:bg-[#141B26] transition-colors">
-                <td className="py-3.5 px-5">
-                  <div className="font-semibold text-slate-100">{w.name}</div>
-                  <div className="text-slate-400 font-mono text-[11px]">{w.displayUrl}</div>
-                </td>
-                <td className="py-3.5 px-5"><EnvBadge env={w.environment} /></td>
-                <td className="py-3.5 px-5"><StatusBadge status={w.health} /></td>
-                <td className="py-3.5 px-5 font-mono text-slate-200">{w.apiCount} APIs</td>
-                <td className="py-3.5 px-5 font-mono font-bold text-slate-200">{formatUptime(w.uptime)}</td>
-                <td className="py-3.5 px-5 text-right">
-                  <button
-                    onClick={() => navigate(`/websites/${w.id}`)}
-                    className="text-indigo-400 hover:text-indigo-300 font-semibold"
-                  >
-                    View as Dev →
-                  </button>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-10 text-center font-mono text-xs text-slate-500">
+                  N/A - No websites available
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map(w => (
+                <tr key={w.id} className="hover:bg-[#141B26] transition-colors">
+                  <td className="py-3.5 px-5">
+                    <div className="font-semibold text-slate-100">{w.name || 'N/A'}</div>
+                    <div className="text-slate-400 font-mono text-[11px]">{w.displayUrl || w.url || 'N/A'}</div>
+                  </td>
+                  <td className="py-3.5 px-5"><EnvBadge env={w.environment || 'production'} /></td>
+                  <td className="py-3.5 px-5"><StatusBadge status={w.health || 'healthy'} /></td>
+                  <td className="py-3.5 px-5 font-mono text-slate-200">{w.apiCount !== undefined ? `${w.apiCount} APIs` : 'N/A'}</td>
+                  <td className="py-3.5 px-5 font-mono font-bold text-slate-200">{formatUptime(w.uptime)}</td>
+                  <td className="py-3.5 px-5 text-right">
+                    <button
+                      onClick={() => navigate(`/websites/${w.id}`)}
+                      className="text-indigo-400 hover:text-indigo-300 font-semibold"
+                    >
+                      View as Dev →
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

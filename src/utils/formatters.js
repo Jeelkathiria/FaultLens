@@ -1,24 +1,27 @@
 export const formatNumber = (num) => {
-  if (num === undefined || num === null) return '0';
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M';
+  if (num === undefined || num === null || isNaN(Number(num))) return 'N/A';
+  const val = Number(num);
+  if (val >= 1000000) {
+    return (val / 1000000).toFixed(1) + 'M';
   }
-  if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K';
+  if (val >= 1000) {
+    return (val / 1000).toFixed(1) + 'K';
   }
-  return num.toLocaleString();
+  return val.toLocaleString();
 };
 
 export const formatLatency = (ms) => {
-  if (ms === undefined || ms === null) return '0ms';
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(1)}s`;
+  if (ms === undefined || ms === null || isNaN(Number(ms))) return 'N/A';
+  const val = Number(ms);
+  if (val === 0) return '0ms';
+  if (val >= 1000) {
+    return `${(val / 1000).toFixed(1)}s`;
   }
-  return `${Math.round(ms)}ms`;
+  return `${Math.round(val)}ms`;
 };
 
 export const formatUptime = (rate) => {
-  if (rate === undefined || rate === null) return '100.00%';
+  if (rate === undefined || rate === null || isNaN(Number(rate))) return 'N/A';
   return `${Number(rate).toFixed(2)}%`;
 };
 

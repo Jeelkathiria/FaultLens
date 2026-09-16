@@ -81,18 +81,23 @@ export const DeploymentsPage = () => {
 
       {/* Deployments List */}
       <div className="space-y-4">
-        {filteredDeployments.map((dep) => {
-          const hasIncident = dep.status === 'incident';
+        {filteredDeployments.length === 0 ? (
+          <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+            N/A - No deployments available
+          </div>
+        ) : (
+          filteredDeployments.map((dep) => {
+            const hasIncident = dep.status === 'incident';
 
-          return (
-            <div
-              key={dep.id}
-              className={`rounded-xl border p-5 transition-all duration-200 card-hover-glow ${
-                hasIncident
-                  ? 'border-amber-500/30 bg-gradient-to-r from-[#0F141D] via-amber-950/10 to-[#0F141D]'
-                  : 'border-[#1E2633] bg-[#0F141D]'
-              }`}
-            >
+            return (
+              <div
+                key={dep.id}
+                className={`rounded-xl border p-5 transition-all duration-200 card-hover-glow ${
+                  hasIncident
+                    ? 'border-amber-500/30 bg-gradient-to-r from-[#0F141D] via-amber-950/10 to-[#0F141D]'
+                    : 'border-[#1E2633] bg-[#0F141D]'
+                }`}
+              >
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 {/* Left: Version & Commit Details */}
                 <div className="flex items-start gap-4">
@@ -169,7 +174,7 @@ export const DeploymentsPage = () => {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </div>
   );

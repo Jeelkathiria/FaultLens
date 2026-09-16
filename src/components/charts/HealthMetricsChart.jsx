@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -12,14 +12,39 @@ import {
   ReferenceLine
 } from 'recharts';
 import { TimeRangeSelector } from '../common/TimeRangeSelector';
-import { getSystemHealthData } from '../../data/metrics';
 import { Activity, AlertTriangle, Clock } from 'lucide-react';
+import api from '../../services/api';
 
 export const HealthMetricsChart = () => {
   const [metricType, setMetricType] = useState('requests'); // 'requests' | 'errorRate' | 'latency'
   const [timeRange, setTimeRange] = useState('24H');
+  const [data, setData] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const data = getSystemHealthData(metricType, timeRange);
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchMetrics() {
+      setIsLoading(true);
+      try {
+        const res = await api.get('/dashboard/metrics', {
+          timeRange: timeRange.toLowerCase(),
+          metricType
+        });
+        if (isMounted && res?.timeSeries && Array.isArray(res.timeSeries)) {
+          setData(res.timeSeries);
+        }
+      } catch (err) {
+        console.error('Failed to load live health metrics:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    fetchMetrics();
+    return () => {
+      isMounted = false;
+    };
+  }, [metricType, timeRange]);
 
   return (
     <div className="rounded-xl border border-[#1E2633] bg-[#0F141D] p-6">
@@ -68,65 +93,76 @@ export const HealthMetricsChart = () => {
 
       {/* Chart Canvas */}
       <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          {metricType === 'requests' ? (
-            <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="requestsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366F1" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#6366F1" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
-              <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
-                formatter={(val) => [`${val.toLocaleString()} reqs`, 'Throughput']}
-              />
-              <Area
-                type="monotone"
-                dataKey="requests"
-                stroke="#6366F1"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#requestsGradient)"
-              />
-            </AreaChart>
-          ) : metricType === 'errorRate' ? (
-            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
-              <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}%`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
-                formatter={(val) => [`${val}%`, 'Error Rate']}
-              />
-              <ReferenceLine y={2.5} stroke="#F59E0B" strokeDasharray="4 4" label={{ value: 'Threshold 2.5%', fill: '#F59E0B', fontSize: 11, position: 'insideTopRight' }} />
-              <Line
-                type="monotone"
-                dataKey="errorRate"
-                stroke="#EF4444"
-                strokeWidth={2.5}
-                dot={{ r: 3, fill: '#EF4444' }}
-                activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }}
-              />
-            </LineChart>
-          ) : (
-            <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
-              <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
-              <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}ms`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
-                formatter={(val, name) => [`${val}ms`, name.toUpperCase()]}
-              />
-              <Line type="monotone" dataKey="p50" stroke="#22C55E" strokeWidth={1.5} dot={false} name="P50" />
-              <Line type="monotone" dataKey="p95" stroke="#F59E0B" strokeWidth={2} dot={false} name="P95" />
-              <Line type="monotone" dataKey="p99" stroke="#EF4444" strokeWidth={1.5} dot={false} name="P99" />
-            </LineChart>
-          )}
-        </ResponsiveContainer>
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+            {isLoading ? 'Loading live metrics from cluster...' : 'No telemetry data recorded for selected range'}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            {metricType === 'requests' ? (
+              <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="requestsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366F1" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#6366F1" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
+                  formatter={(val) => [`${val.toLocaleString()} reqs`, 'Throughput']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="requests"
+                  stroke="#6366F1"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#requestsGradient)"
+                />
+              </AreaChart>
+            ) : metricType === 'errorRate' ? (
+              <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}%`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
+                  formatter={(val) => [`${val}%`, 'Error Rate']}
+                />
+                <ReferenceLine
+                  y={2.5}
+                  stroke="#F59E0B"
+                  strokeDasharray="4 4"
+                  label={{ value: 'Threshold 2.5%', fill: '#F59E0B', fontSize: 11, position: 'insideTopRight' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="errorRate"
+                  stroke="#EF4444"
+                  strokeWidth={2.5}
+                  dot={{ r: 3, fill: '#EF4444' }}
+                  activeDot={{ r: 6, fill: '#EF4444', stroke: '#fff', strokeWidth: 2 }}
+                />
+              </LineChart>
+            ) : (
+              <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1E2633" vertical={false} />
+                <XAxis dataKey="time" stroke="#64748B" fontSize={11} tickLine={false} />
+                <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}ms`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
+                  formatter={(val, name) => [`${val}ms`, name.toUpperCase()]}
+                />
+                <Line type="monotone" dataKey="p50" stroke="#22C55E" strokeWidth={1.5} dot={false} name="P50" />
+                <Line type="monotone" dataKey="p95" stroke="#F59E0B" strokeWidth={2} dot={false} name="P95" />
+                <Line type="monotone" dataKey="p99" stroke="#EF4444" strokeWidth={1.5} dot={false} name="P99" />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Footer Legend */}
