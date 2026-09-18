@@ -6,7 +6,11 @@ class DeploymentController {
    */
   async createDeployment(req, res, next) {
     try {
-      const deployment = await deploymentService.createDeployment(req.body);
+      const deployment = await deploymentService.createDeployment(
+        req.body,
+        req.user?.id,
+        req.user?.role === 'ADMIN'
+      );
 
       res.status(201).json({
         success: true,
@@ -52,7 +56,11 @@ class DeploymentController {
   async getDeploymentById(req, res, next) {
     try {
       const { id } = req.params;
-      const deployment = await deploymentService.getDeploymentById(id);
+      const deployment = await deploymentService.getDeploymentById(
+        id,
+        req.user?.id,
+        req.user?.role === 'ADMIN'
+      );
 
       res.json({
         success: true,

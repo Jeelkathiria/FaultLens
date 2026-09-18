@@ -65,28 +65,13 @@ class MetricController {
         });
       }
 
-      // Default synthetic timeseries if no APIs exist yet
-      const points = timeRange === '1h' ? 12 : timeRange === '6h' ? 18 : 24;
-      const data = [];
-      for (let i = 0; i < points; i++) {
-        data.push({
-          time: `${i}:00`,
-          requests: 4200 + Math.round(Math.random() * 400),
-          successful: 4100,
-          failed: 100,
-          errorRate: 1.2,
-          p50: 120,
-          p95: 280,
-          p99: 450
-        });
-      }
-
+      // Return empty timeseries if no APIs exist yet for this developer
       res.json({
         success: true,
         data: {
           timeRange,
-          summary: { totalRequests: 124580, overallErrorRate: 1.2, p95Latency: 280 },
-          timeSeries: data
+          summary: { totalRequests: 0, overallErrorRate: 0, p95Latency: 0 },
+          timeSeries: []
         }
       });
     } catch (err) {
@@ -103,10 +88,12 @@ class MetricController {
       const timeRange = req.query.timeRange || '24h';
 
       const api = await prisma.api.findUnique({
-        where: { id: apiId }
+        where: { id: apiId },
+        include: { website: true }
       });
 
-      if (!api) {
+      // Prefer 404 when outside accessible scope to avoid revealing existence
+      if (!api || (req.user?.role !== 'ADMIN' && api.website?.userId !== req.user?.id)) {
         throw new NotFoundError('API not found');
       }
 

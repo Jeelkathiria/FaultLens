@@ -21,12 +21,8 @@ class MonitoringService {
       include: { website: true }
     });
 
-    if (!api) {
-      throw new NotFoundError(`API with ID '${apiId}' not found`);
-    }
-
-    if (authenticatedUser.role !== 'ADMIN' && api.website.userId !== authenticatedUser.id) {
-      throw new ForbiddenError('You do not have permission to submit telemetry for this API');
+    if (!api || (authenticatedUser.role !== 'ADMIN' && api.website?.userId !== authenticatedUser.id)) {
+      throw new NotFoundError(`API not found`);
     }
 
     const eventTime = timestamp ? new Date(timestamp) : new Date();

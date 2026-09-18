@@ -184,11 +184,9 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       {/* User Footer Profile */}
       <div className="p-3 border-t border-[#1E2633] bg-[#0B0F17]">
         <div
-          className={`flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/60 transition-colors cursor-pointer ${
+          className={`flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/60 transition-colors ${
             isCollapsed ? 'justify-center' : ''
           }`}
-          onClick={() => switchRole(role === 'developer' ? 'admin' : 'developer')}
-          title="Click to switch role (Developer ↔ Admin)"
         >
           <div className="relative shrink-0">
             {(() => {
@@ -208,13 +206,21 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <div className="text-xs font-semibold text-slate-200 truncate">
-                {currentUser?.name || 'Jeel Kathiria'}
+                {currentUser?.name || 'Developer'}
               </div>
-              <div className="text-[11px] text-slate-400 capitalize flex items-center gap-1">
+              <div className="text-[11px] text-slate-400 capitalize flex items-center justify-between gap-1">
                 <span>{role === 'admin' ? 'Admin' : 'Developer'}</span>
-                <span className="text-[9px] text-indigo-400 bg-indigo-500/10 px-1 py-0.2 rounded border border-indigo-500/20">
-                  Switch ⇄
-                </span>
+                <button
+                  onClick={() => {
+                    logout();
+                    navigate('/login');
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-red-400 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="w-3 h-3" />
+                  <span>Exit</span>
+                </button>
               </div>
             </div>
           )}

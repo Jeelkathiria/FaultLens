@@ -92,10 +92,21 @@ export const DashboardPage = () => {
               <AlertOctagon className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="text-xs font-bold text-red-400 uppercase tracking-wider font-mono">
                   {activeIncidents[0].number}
                 </span>
+                {(activeIncidents[0].websiteName || websites?.find(w => w.id === activeIncidents[0].websiteId)?.name) && (
+                  <span className="text-xs font-medium text-indigo-300 px-2.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 flex items-center gap-1.5 font-mono">
+                    <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+                    <span>{activeIncidents[0].websiteName || websites?.find(w => w.id === activeIncidents[0].websiteId)?.name}</span>
+                  </span>
+                )}
+                {activeIncidents[0].apiName && (
+                  <span className="text-xs font-mono text-slate-400 font-semibold px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">
+                    {activeIncidents[0].apiName}
+                  </span>
+                )}
                 <span className="text-sm font-semibold text-slate-100">{activeIncidents[0].title}</span>
               </div>
               <p className="text-xs text-slate-400 mt-1">{activeIncidents[0].summary}</p>

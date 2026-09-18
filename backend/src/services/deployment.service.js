@@ -1,16 +1,34 @@
 const prisma = require('../config/database');
 const { NotFoundError } = require('../utils/errors');
 const { emitDeploymentCreated } = require('../websocket/socket');
-const { mockDeployments } = require('../utils/mockData');
 const logger = require('../utils/logger');
 
 class DeploymentService {
   /**
    * Create a new deployment record
    * @param {Object} data
+   * @param {string} [userId]
+   * @param {boolean} [isAdmin]
    * @returns {Promise<Object>}
    */
-  async createDeployment(data) {
+  async createDeployment(data, userId = null, isAdmin = false) {
+    const website = await prisma.website.findUnique({
+      where: { id: data.websiteId }
+    });
+
+    if (!website || (!isAdmin && userId && website.userId !== userId)) {
+      throw new NotFoundError('Website not found');
+    }
+
+    if (data.apiId) {
+      const api = await prisma.api.findUnique({
+        where: { id: data.apiId }
+      });
+      if (!api || api.websiteId !== website.id) {
+        throw new NotFoundError('API not found');
+      }
+    }
+
     const deployment = await prisma.deployment.create({
       data: {
         websiteId: data.websiteId,
@@ -70,7 +88,7 @@ class DeploymentService {
       });
 
       if (!deployments || deployments.length === 0) {
-        return mockDeployments;
+        return [];
       }
 
       // Format for frontend
@@ -93,38 +111,36 @@ class DeploymentService {
         environment: d.environment
       }));
     } catch (err) {
-      logger.warn(`Database query failed in getDeployments (${err.message}). Serving fallback dataset.`);
-      return mockDeployments;
+      logger.error(`Database query failed in getDeployments: ${err.message}`);
+      return [];
     }
   }
 
   /**
    * Get deployment by ID
    * @param {string} id
+   * @param {string} [userId]
+   * @param {boolean} [isAdmin]
    * @returns {Promise<Object>}
    */
-  async getDeploymentById(id) {
-    try {
-      const deployment = await prisma.deployment.findUnique({
-        where: { id },
-        include: {
-          website: true,
-          api: true
-        }
-      });
-
-      if (!deployment) {
-        const fallback = mockDeployments.find((d) => d.id === id);
-        if (fallback) return fallback;
-        throw new NotFoundError('Deployment not found');
+  async getDeploymentById(id, userId = null, isAdmin = false) {
+    const deployment = await prisma.deployment.findUnique({
+      where: { id },
+      include: {
+        website: true,
+        api: true
       }
+    });
 
-      return deployment;
-    } catch (err) {
-      if (err instanceof NotFoundError) throw err;
-      const fallback = mockDeployments.find((d) => d.id === id) || mockDeployments[0];
-      return fallback;
+    if (!deployment) {
+      throw new NotFoundError('Deployment not found');
     }
+
+    if (!isAdmin && userId && deployment.website?.userId !== userId) {
+      throw new NotFoundError('Deployment not found');
+    }
+
+    return deployment;
   }
 }
 

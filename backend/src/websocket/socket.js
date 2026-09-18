@@ -25,7 +25,6 @@ function initSocket(httpServer) {
       const token = socket.handshake.auth?.token || socket.handshake.query?.token;
 
       if (!token) {
-        // Allow unauthenticated guest connections for public demo, but restrict rooms
         socket.user = null;
         return next();
       }
@@ -41,14 +40,14 @@ function initSocket(httpServer) {
       }
       next();
     } catch (err) {
-      logger.debug(`Socket auth failed: ${err.message} - continuing as guest`);
+      logger.debug(`Socket auth failed: ${err.message} - continuing as unauthenticated`);
       socket.user = null;
       next();
     }
   });
 
   io.on('connection', (socket) => {
-    const userDisplay = socket.user ? `${socket.user.name} (${socket.user.id})` : 'Guest/Demo Client';
+    const userDisplay = socket.user ? `${socket.user.name} (${socket.user.id})` : 'Unauthenticated Client';
     logger.info(`WebSocket Client Connected: ${socket.id} - ${userDisplay}`);
 
     // Auto-join user room if authenticated
@@ -59,27 +58,60 @@ function initSocket(httpServer) {
       }
     }
 
-    // Room subscription: website
+    // Room subscription: website (enforces tenant ownership)
     socket.on('subscribe:website', async (websiteId) => {
-      // Validate that user owns website or is admin, or demo guest
-      socket.join(`website:${websiteId}`);
-      logger.debug(`Socket ${socket.id} joined website:${websiteId}`);
+      try {
+        if (!websiteId) return;
+
+        if (socket.user && socket.user.role !== 'ADMIN') {
+          const website = await prisma.website.findUnique({
+            where: { id: websiteId },
+            select: { userId: true }
+          });
+          if (!website || website.userId !== socket.user.id) {
+            logger.warn(`Unauthorized website subscription attempt: ${socket.user.id} -> ${websiteId}`);
+            return;
+          }
+        }
+
+        socket.join(`website:${websiteId}`);
+        logger.debug(`Socket ${socket.id} joined website:${websiteId}`);
+      } catch (err) {
+        logger.error(`Error subscribing to website ${websiteId}: ${err.message}`);
+      }
     });
 
-    // Room subscription: api
-    socket.on('subscribe:api', (apiId) => {
-      socket.join(`api:${apiId}`);
-      logger.debug(`Socket ${socket.id} joined api:${apiId}`);
+    // Room subscription: api (enforces tenant ownership)
+    socket.on('subscribe:api', async (apiId) => {
+      try {
+        if (!apiId) return;
+
+        if (socket.user && socket.user.role !== 'ADMIN') {
+          const api = await prisma.api.findUnique({
+            where: { id: apiId },
+            select: { website: { select: { userId: true } } }
+          });
+          if (!api || api.website?.userId !== socket.user.id) {
+            logger.warn(`Unauthorized api subscription attempt: ${socket.user.id} -> ${apiId}`);
+            return;
+          }
+        }
+
+        socket.join(`api:${apiId}`);
+        logger.debug(`Socket ${socket.id} joined api:${apiId}`);
+      } catch (err) {
+        logger.error(`Error subscribing to api ${apiId}: ${err.message}`);
+      }
     });
 
     // Room leave: website
     socket.on('unsubscribe:website', (websiteId) => {
-      socket.leave(`website:${websiteId}`);
+      if (websiteId) socket.leave(`website:${websiteId}`);
     });
 
     // Room leave: api
     socket.on('unsubscribe:api', (apiId) => {
-      socket.leave(`api:${apiId}`);
+      if (apiId) socket.leave(`api:${apiId}`);
     });
 
     socket.on('disconnect', (reason) => {
@@ -115,7 +147,11 @@ function emitIncidentCreated(incident) {
   if (incident.api?.websiteId) {
     io.to(`website:${incident.api.websiteId}`).emit('INCIDENT_CREATED', incident);
   }
-  io.emit('INCIDENT_CREATED', incident); // Broadcast to active dashboards
+  const ownerUserId = incident.api?.website?.userId;
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('INCIDENT_CREATED', incident);
+  }
+  io.to('admin:platform').emit('INCIDENT_CREATED', incident);
 }
 
 function emitIncidentUpdated(incident) {
@@ -124,7 +160,11 @@ function emitIncidentUpdated(incident) {
   if (incident.api?.websiteId) {
     io.to(`website:${incident.api.websiteId}`).emit('INCIDENT_UPDATED', incident);
   }
-  io.emit('INCIDENT_UPDATED', incident);
+  const ownerUserId = incident.api?.website?.userId;
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('INCIDENT_UPDATED', incident);
+  }
+  io.to('admin:platform').emit('INCIDENT_UPDATED', incident);
 }
 
 function emitIncidentResolved(incident) {
@@ -133,7 +173,11 @@ function emitIncidentResolved(incident) {
   if (incident.api?.websiteId) {
     io.to(`website:${incident.api.websiteId}`).emit('INCIDENT_RESOLVED', incident);
   }
-  io.emit('INCIDENT_RESOLVED', incident);
+  const ownerUserId = incident.api?.website?.userId;
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('INCIDENT_RESOLVED', incident);
+  }
+  io.to('admin:platform').emit('INCIDENT_RESOLVED', incident);
 }
 
 function emitDeploymentCreated(deployment) {
@@ -144,7 +188,37 @@ function emitDeploymentCreated(deployment) {
   if (deployment.apiId) {
     io.to(`api:${deployment.apiId}`).emit('DEPLOYMENT_CREATED', deployment);
   }
-  io.emit('DEPLOYMENT_CREATED', deployment);
+  const ownerUserId = deployment.website?.userId;
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('DEPLOYMENT_CREATED', deployment);
+  }
+  io.to('admin:platform').emit('DEPLOYMENT_CREATED', deployment);
+}
+
+function emitApiHealthUpdated(api, healthData) {
+  if (!io) return;
+  const websiteId = api.websiteId || api.website?.id;
+  const ownerUserId = api.website?.userId;
+
+  const payload = {
+    apiId: api.id,
+    websiteId,
+    status: healthData.status,
+    statusCode: healthData.statusCode,
+    responseTime: healthData.responseTime,
+    checkedAt: healthData.checkedAt,
+    success: healthData.success,
+    error: healthData.error
+  };
+
+  io.to(`api:${api.id}`).emit('API_HEALTH_UPDATED', payload);
+  if (websiteId) {
+    io.to(`website:${websiteId}`).emit('API_HEALTH_UPDATED', payload);
+  }
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('API_HEALTH_UPDATED', payload);
+  }
+  io.to('admin:platform').emit('API_HEALTH_UPDATED', payload);
 }
 
 module.exports = {
@@ -155,5 +229,6 @@ module.exports = {
   emitIncidentCreated,
   emitIncidentUpdated,
   emitIncidentResolved,
-  emitDeploymentCreated
+  emitDeploymentCreated,
+  emitApiHealthUpdated
 };

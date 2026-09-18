@@ -4,11 +4,12 @@ import { useFaultLens } from '../../context/FaultLensContext';
 import {
   Menu,
   Bell,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
 
 export const Topbar = ({ onOpenMobileNav }) => {
-  const { role, switchRole, incidents } = useFaultLens();
+  const { role, currentUser, logout, incidents } = useFaultLens();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,28 +85,15 @@ export const Topbar = ({ onOpenMobileNav }) => {
 
       {/* Right: Actions & Role Controls */}
       <div className="flex items-center gap-2.5">
-        {/* Role Switcher Pill */}
-        <div className="hidden sm:flex items-center p-0.5 rounded-lg bg-[#080B12] border border-[#1E2633]">
-          <button
-            onClick={() => switchRole('developer')}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              role === 'developer'
-                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Developer
-          </button>
-          <button
-            onClick={() => switchRole('admin')}
-            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-              role === 'admin'
-                ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Admin
-          </button>
+        {/* Active Account Pill */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-semibold text-slate-200">{currentUser?.name || (role === 'admin' ? 'Platform Admin' : 'Developer')}</span>
+          <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${
+            role === 'admin' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+          }`}>
+            {role}
+          </span>
         </div>
 
         {/* Incidents Quick Badge Link */}
@@ -120,6 +108,19 @@ export const Topbar = ({ onOpenMobileNav }) => {
               {activeIncidentsCount}
             </span>
           )}
+        </button>
+
+        {/* Explicit Logout Button for tenant testing */}
+        <button
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          className="p-2 px-2.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+          title="Log out of current session"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden md:inline">Logout</span>
         </button>
       </div>
     </header>

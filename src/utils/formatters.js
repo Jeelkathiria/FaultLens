@@ -31,8 +31,9 @@ export const getStatusConfig = (status) => {
     case 'healthy':
     case 'stable':
     case 'resolved':
+    case 'operational':
       return {
-        label: s === 'stable' ? 'Stable' : s === 'resolved' ? 'Resolved' : 'Healthy',
+        label: s === 'operational' ? 'Operational' : s === 'stable' ? 'Stable' : s === 'resolved' ? 'Resolved' : 'Healthy',
         color: '#22C55E',
         dotClass: 'bg-emerald-400',
         bgClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -51,8 +52,9 @@ export const getStatusConfig = (status) => {
     case 'critical':
     case 'incident':
     case 'detected':
+    case 'down':
       return {
-        label: s === 'detected' ? 'Detected' : s === 'incident' ? 'Incident Detected' : 'Critical',
+        label: s === 'down' ? 'Down' : s === 'detected' ? 'Detected' : s === 'incident' ? 'Incident Detected' : 'Critical',
         color: '#EF4444',
         dotClass: 'bg-red-400',
         bgClass: 'bg-red-500/10 text-red-400 border-red-500/20',

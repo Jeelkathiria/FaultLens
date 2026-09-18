@@ -25,5 +25,6 @@ router.get('/', apiController.getApisByWebsite);
 router.get('/:id', apiController.getApiById);
 router.patch('/:id', apiController.updateApi);
 router.delete('/:id', apiController.deleteApi);
+router.post('/:id/check', apiController.checkApiHealthNow);
 
 module.exports = router;

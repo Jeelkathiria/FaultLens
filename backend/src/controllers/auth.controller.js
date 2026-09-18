@@ -28,7 +28,7 @@ class AuthController {
           name,
           email: email.toLowerCase(),
           passwordHash,
-          role: role === 'ADMIN' ? 'ADMIN' : 'DEVELOPER'
+          role: 'DEVELOPER'
         },
         select: {
           id: true,

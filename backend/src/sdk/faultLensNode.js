@@ -17,7 +17,12 @@ const { URL } = require('url');
 function faultLens(options = {}) {
   const apiKey = options.apiKey || process.env.FAULTLENS_API_KEY;
   const apiId = options.apiId || options.serviceId || process.env.FAULTLENS_API_ID;
-  const serverUrl = options.serverUrl || process.env.FAULTLENS_SERVER_URL || 'http://localhost:5000';
+  const serverUrl =
+    options.collectorUrl ||
+    options.serverUrl ||
+    process.env.FAULTLENS_COLLECTOR_URL ||
+    process.env.FAULTLENS_SERVER_URL ||
+    'http://localhost:5000';
   const enabled = options.enabled !== false && Boolean(apiKey && apiId);
   const batchIntervalMs = options.batchIntervalMs || 2000;
 

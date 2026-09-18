@@ -13,7 +13,7 @@ export const AddWebsiteModal = ({ isOpen, onClose }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -32,26 +32,34 @@ export const AddWebsiteModal = ({ isOpen, onClose }) => {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      addWebsite({
+    try {
+      await addWebsite({
         name: name.trim(),
         url: url.trim(),
         environment,
         description: description.trim()
       });
-      setIsSubmitting(false);
       setName('');
       setUrl('');
       setEnvironment('Production');
       setDescription('');
       setErrors({});
       onClose();
-    }, 300);
+    } catch (err) {
+      setErrors({ form: err.message || 'Failed to add website' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add New Website Monitor">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {errors.form && (
+          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
+            {errors.form}
+          </div>
+        )}
         {/* Name */}
         <div>
           <label className="block text-xs font-medium text-slate-300 mb-1.5">Website / Application Name *</label>

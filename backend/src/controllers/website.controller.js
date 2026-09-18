@@ -1,10 +1,18 @@
 const prisma = require('../config/database');
-const { NotFoundError, ForbiddenError } = require('../utils/errors');
+const { NotFoundError } = require('../utils/errors');
 const uptimeService = require('../services/uptime.service');
-const { mockWebsites } = require('../utils/mockData');
 const logger = require('../utils/logger');
 
 class WebsiteController {
+  constructor() {
+    this.createWebsite = this.createWebsite.bind(this);
+    this.getWebsites = this.getWebsites.bind(this);
+    this.getWebsiteById = this.getWebsiteById.bind(this);
+    this.updateWebsite = this.updateWebsite.bind(this);
+    this.deleteWebsite = this.deleteWebsite.bind(this);
+    this.formatWebsite = this.formatWebsite.bind(this);
+  }
+
   /**
    * Create a new monitored website
    */
@@ -41,30 +49,20 @@ class WebsiteController {
     try {
       const where = req.user.role === 'ADMIN' ? {} : { userId: req.user.id };
 
-      let formattedWebsites = [];
-      try {
-        const websites = await prisma.website.findMany({
-          where,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            apis: {
-              select: {
-                id: true,
-                status: true
-              }
+      const websites = await prisma.website.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          apis: {
+            select: {
+              id: true,
+              status: true
             }
           }
-        });
-
-        if (websites && websites.length > 0) {
-          formattedWebsites = await Promise.all(websites.map((w) => this.formatWebsite(w)));
-        } else {
-          formattedWebsites = mockWebsites;
         }
-      } catch (dbErr) {
-        logger.warn(`Database query failed in getWebsites (${dbErr.message}). Serving fallback dataset.`);
-        formattedWebsites = mockWebsites;
-      }
+      });
+
+      const formattedWebsites = await Promise.all(websites.map((w) => this.formatWebsite(w)));
 
       res.json({
         success: true,
@@ -82,33 +80,22 @@ class WebsiteController {
     try {
       const { id } = req.params;
 
-      let website = null;
-      try {
-        website = await prisma.website.findUnique({
-          where: { id },
-          include: {
-            apis: {
-              include: {
-                incidents: {
-                  where: { status: { in: ['DETECTED', 'INVESTIGATING'] } }
-                }
+      const website = await prisma.website.findUnique({
+        where: { id },
+        include: {
+          apis: {
+            include: {
+              incidents: {
+                where: { status: { in: ['DETECTED', 'INVESTIGATING'] } }
               }
             }
           }
-        });
-      } catch (_) {
-        const fallback = mockWebsites.find((w) => w.id === id);
-        if (fallback) return res.json({ success: true, data: fallback });
-      }
+        }
+      });
 
-      if (!website) {
-        const fallback = mockWebsites.find((w) => w.id === id);
-        if (fallback) return res.json({ success: true, data: fallback });
+      // Prefer 404 when outside accessible scope to avoid leaking existence
+      if (!website || (req.user.role !== 'ADMIN' && website.userId !== req.user.id)) {
         throw new NotFoundError('Website not found');
-      }
-
-      if (req.user.role !== 'ADMIN' && website.userId !== req.user.id) {
-        throw new ForbiddenError('You do not have permission to view this website');
       }
 
       const formatted = await this.formatWebsite(website);
@@ -131,10 +118,8 @@ class WebsiteController {
       const { name, url, environment, description, status } = req.body;
 
       const existing = await prisma.website.findUnique({ where: { id } });
-      if (!existing) throw new NotFoundError('Website not found');
-
-      if (req.user.role !== 'ADMIN' && existing.userId !== req.user.id) {
-        throw new ForbiddenError('You do not have permission to update this website');
+      if (!existing || (req.user.role !== 'ADMIN' && existing.userId !== req.user.id)) {
+        throw new NotFoundError('Website not found');
       }
 
       const updateData = {};
@@ -168,10 +153,8 @@ class WebsiteController {
       const { id } = req.params;
 
       const existing = await prisma.website.findUnique({ where: { id } });
-      if (!existing) throw new NotFoundError('Website not found');
-
-      if (req.user.role !== 'ADMIN' && existing.userId !== req.user.id) {
-        throw new ForbiddenError('You do not have permission to delete this website');
+      if (!existing || (req.user.role !== 'ADMIN' && existing.userId !== req.user.id)) {
+        throw new NotFoundError('Website not found');
       }
 
       await prisma.website.delete({ where: { id } });
@@ -232,7 +215,7 @@ class WebsiteController {
       activeIncidents,
       lastChecked: 'Just now',
       description: w.description || 'Configured application gateway',
-      createdDate: w.createdAt.toISOString().split('T')[0],
+      createdDate: w.createdAt ? new Date(w.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
       uptimeHistory
     };
   }

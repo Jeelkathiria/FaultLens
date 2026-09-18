@@ -19,18 +19,32 @@ import {
   TrendingUp,
   ExternalLink,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 export const ApiDetailsPage = () => {
   const { websiteId, apiId } = useParams();
   const navigate = useNavigate();
-  const { websites, apis, incidents } = useFaultLens();
+  const { websites, apis, incidents, checkApiNow } = useFaultLens();
 
   const [timeRange, setTimeRange] = useState('24H');
+  const [isChecking, setIsChecking] = useState(false);
 
   const website = websites.find(w => w.id === websiteId) || websites[0];
   const api = apis.find(a => a.id === apiId) || apis[0];
+
+  const handleCheckNow = async () => {
+    if (isChecking || !api) return;
+    setIsChecking(true);
+    try {
+      await checkApiNow(api.id);
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   if (!api) {
     return (
@@ -73,19 +87,69 @@ export const ApiDetailsPage = () => {
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">{api.name || 'N/A'}</h1>
-                <StatusBadge status={api.status || 'healthy'} />
+                <StatusBadge status={api.status || 'UNKNOWN'} />
               </div>
               <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
                 <span className="text-slate-200 font-semibold">{api.endpoint || 'N/A'}</span>
                 <span>•</span>
                 <span>Health check: {api.healthCheckEndpoint || 'N/A'}</span>
                 <span>•</span>
-                <span>Interval: {api.monitoringInterval || 'N/A'}</span>
+                <span>Interval: {api.monitoringInterval || '60s'}</span>
               </div>
             </div>
           </div>
 
-          <TimeRangeSelector selected={timeRange} onChange={setTimeRange} ranges={['1H', '6H', '24H', '7D']} />
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <button
+              onClick={handleCheckNow}
+              disabled={isChecking}
+              className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-indigo-600/20 active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isChecking ? 'animate-spin' : ''}`} />
+              <span>{isChecking ? 'Checking...' : 'Check Now'}</span>
+            </button>
+            <TimeRangeSelector selected={timeRange} onChange={setTimeRange} ranges={['1H', '6H', '24H', '7D']} />
+          </div>
+        </div>
+
+        {/* Live Monitoring Quick Status Banner */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 p-4 rounded-xl bg-[#080B12] border border-[#1E2633]">
+          <div>
+            <div className="text-[10px] uppercase font-mono tracking-wider text-slate-500">Last Checked</div>
+            <div className="text-xs font-mono font-semibold text-slate-200 mt-0.5">
+              {api.lastChecked || 'Never'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-mono tracking-wider text-slate-500">Last Response</div>
+            <div className="text-xs font-mono font-bold mt-0.5 flex items-center gap-1.5">
+              {api.lastCheckSuccess === true ? (
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {api.lastResponse || '200 OK'}
+                </span>
+              ) : api.lastCheckSuccess === false ? (
+                <span className="text-red-400 flex items-center gap-1">
+                  <XCircle className="w-3 h-3" />
+                  {api.lastResponse || `${api.lastStatusCode || 'ERR'}`}
+                </span>
+              ) : (
+                <span className="text-slate-400">Not checked yet</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-mono tracking-wider text-slate-500">Response Time</div>
+            <div className="text-xs font-mono font-semibold text-slate-200 mt-0.5">
+              {api.lastResponseTime !== null && api.lastResponseTime !== undefined ? `${api.lastResponseTime} ms` : 'N/A'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase font-mono tracking-wider text-slate-500">Expected Status / Timeout</div>
+            <div className="text-xs font-mono font-semibold text-slate-400 mt-0.5">
+              {api.expectedStatusCode || 200} / {api.timeout || 10000}ms
+            </div>
+          </div>
         </div>
       </div>
 
@@ -123,7 +187,7 @@ export const ApiDetailsPage = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Requests"
-          value={formatNumber(api.requestsCount || 25430)}
+          value={formatNumber(api.requestsCount !== undefined ? api.requestsCount : 0)}
           subtitle="Throughput volume"
           icon={Activity}
           trend="+14.2%"
@@ -132,7 +196,7 @@ export const ApiDetailsPage = () => {
         />
         <StatCard
           title="Error Rate"
-          value={`${api.errorRate}%`}
+          value={`${api.errorRate !== undefined ? api.errorRate : 0}%`}
           subtitle="Observed 5xx / 4xx"
           icon={AlertTriangle}
           trend={api.errorRate > 5 ? '+16.8% anomaly spike' : 'Normal'}
@@ -141,7 +205,7 @@ export const ApiDetailsPage = () => {
         />
         <StatCard
           title="P95 Latency"
-          value={formatLatency(api.p95Latency)}
+          value={formatLatency(api.p95Latency || 0)}
           subtitle="Tail response time"
           icon={Clock}
           trend={api.p95Latency > 1000 ? '+1,230% degradation' : 'Stable'}
@@ -150,11 +214,27 @@ export const ApiDetailsPage = () => {
         />
         <StatCard
           title="Uptime"
-          value={formatUptime(api.uptime)}
+          value={formatUptime(api.uptime !== undefined ? api.uptime : 100)}
           subtitle="Availability SLA"
           icon={ShieldCheck}
-          color={api.uptime > 99 ? 'emerald' : 'slate'}
+          color={(api.uptime || 100) > 99 ? 'emerald' : 'slate'}
         />
+      </div>
+
+      {/* Latency Percentiles Pill Strip */}
+      <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-[#0F141D] border border-[#1E2633] text-center font-mono">
+        <div className="border-r border-[#1E2633]">
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider">Median (P50)</div>
+          <div className="text-sm font-bold text-slate-200 mt-0.5">{formatLatency(api.p50Latency || 0)}</div>
+        </div>
+        <div className="border-r border-[#1E2633]">
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider">Tail (P95)</div>
+          <div className="text-sm font-bold text-amber-400 mt-0.5">{formatLatency(api.p95Latency || 0)}</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider">Max Spike (P99)</div>
+          <div className="text-sm font-bold text-purple-400 mt-0.5">{formatLatency(api.p99Latency || 0)}</div>
+        </div>
       </div>
 
       {/* Visual Anomaly Error Rate Chart Section (Killer visual) */}

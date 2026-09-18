@@ -13,8 +13,7 @@ router.post(
   validate([
     body('name').trim().notEmpty().withMessage('Name is required'),
     body('email').trim().isEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-    body('role').optional().isIn(['DEVELOPER', 'ADMIN']).withMessage('Role must be DEVELOPER or ADMIN')
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
   ]),
   authController.register
 );

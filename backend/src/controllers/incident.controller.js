@@ -36,7 +36,11 @@ class IncidentController {
   async getIncidentById(req, res, next) {
     try {
       const { id } = req.params;
-      const incident = await incidentService.getIncidentById(id);
+      const incident = await incidentService.getIncidentById(
+        id,
+        req.user?.id,
+        req.user?.role === 'ADMIN'
+      );
 
       res.json({
         success: true,

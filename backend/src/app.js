@@ -51,19 +51,16 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'FaultLens API Documentation'
 }));
 
+const mongoose = require('mongoose');
+
 // Root Health Check Endpoint
 app.get('/health', async (req, res) => {
-  let dbStatus = 'connected';
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-  } catch (_) {
-    dbStatus = 'disconnected';
-  }
-
+  const isDbConnected = mongoose.connection.readyState === 1;
+  const dbStatus = isDbConnected ? 'connected' : 'disconnected';
   const redisStatus = cache.isAvailable() ? 'connected' : 'in-memory-fallback';
 
   res.json({
-    status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+    status: isDbConnected ? 'healthy' : 'degraded',
     database: dbStatus,
     redis: redisStatus,
     timestamp: new Date().toISOString()

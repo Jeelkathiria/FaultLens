@@ -15,13 +15,14 @@ import {
   Users,
   Terminal,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 
 export const IncidentDetailsPage = () => {
   const { incidentId } = useParams();
   const navigate = useNavigate();
-  const { incidents, updateIncidentStatus } = useFaultLens();
+  const { incidents, websites, updateIncidentStatus } = useFaultLens();
 
   const incident = incidents.find(i => i.id === incidentId) || incidents[0];
 
@@ -69,6 +70,12 @@ export const IncidentDetailsPage = () => {
                 <span className="font-mono text-xs font-bold text-red-400 tracking-wider">
                   INCIDENT {incident.number || 'N/A'}
                 </span>
+                {(incident.websiteName || websites?.find(w => w.id === incident.websiteId)?.name) && (
+                  <span className="text-xs font-medium text-indigo-300 px-2.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 flex items-center gap-1.5 font-mono">
+                    <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+                    <span>{incident.websiteName || websites?.find(w => w.id === incident.websiteId)?.name}</span>
+                  </span>
+                )}
                 <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700">
                   {incident.apiName || 'N/A'}
                 </span>

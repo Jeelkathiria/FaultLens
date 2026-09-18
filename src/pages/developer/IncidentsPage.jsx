@@ -13,12 +13,22 @@ import {
   CheckCircle2,
   ChevronRight,
   TrendingUp,
-  Activity
+  Activity,
+  Globe
 } from 'lucide-react';
 
 export const IncidentsPage = () => {
   const navigate = useNavigate();
-  const { incidents } = useFaultLens();
+  const { incidents, websites, apis } = useFaultLens();
+
+  const getWebsiteName = (inc) => {
+    return (
+      inc.websiteName ||
+      websites?.find((w) => w.id === inc.websiteId)?.name ||
+      websites?.find((w) => w.id === apis?.find((a) => a.id === inc.apiId)?.websiteId)?.name ||
+      ''
+    );
+  };
 
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'critical' | 'warning' | 'resolved'
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,10 +45,12 @@ export const IncidentsPage = () => {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchesTitle = inc.title.toLowerCase().includes(q);
-      const matchesApi = inc.apiName.toLowerCase().includes(q);
-      const matchesNum = inc.number.toLowerCase().includes(q);
-      if (!matchesTitle && !matchesApi && !matchesNum) return false;
+      const siteName = getWebsiteName(inc);
+      const matchesTitle = inc.title?.toLowerCase().includes(q);
+      const matchesApi = inc.apiName?.toLowerCase().includes(q);
+      const matchesNum = inc.number?.toLowerCase().includes(q);
+      const matchesWebsite = siteName.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesApi && !matchesNum && !matchesWebsite) return false;
     }
 
     return true;
@@ -114,6 +126,7 @@ export const IncidentsPage = () => {
           filteredIncidents.map((incident) => {
             const isCritical = incident.severity === 'critical';
             const isResolved = incident.status === 'resolved' || incident.severity === 'resolved';
+            const websiteName = getWebsiteName(incident);
 
             return (
               <div
@@ -150,6 +163,12 @@ export const IncidentsPage = () => {
                       <span className="font-mono text-xs font-bold text-slate-300 group-hover:text-indigo-300 transition-colors">
                         {incident.number || 'N/A'}
                       </span>
+                      {websiteName && (
+                        <span className="text-xs font-medium text-indigo-300 px-2.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/25 flex items-center gap-1.5 font-mono">
+                          <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+                          <span>{websiteName}</span>
+                        </span>
+                      )}
                       <span className="text-xs font-mono text-slate-400 font-semibold px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700">
                         {incident.apiName || 'N/A'}
                       </span>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
-import { FaultLensProvider } from './context/FaultLensContext';
+import { FaultLensProvider, useFaultLens } from './context/FaultLensContext';
 
 // Layout
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -30,6 +30,53 @@ import { AdminWebsitesPage } from './pages/admin/AdminWebsitesPage';
 import { AdminIncidentsPage } from './pages/admin/AdminIncidentsPage';
 import { AdminSystemHealthPage } from './pages/admin/AdminSystemHealthPage';
 
+/**
+ * Protected dashboard wrapper: requires active authenticated session
+ */
+const ProtectedDashboard = () => {
+  const { currentUser, isLoading } = useFaultLens();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#080B12] text-slate-400">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-medium tracking-wide">Validating session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <DashboardLayout />;
+};
+
+/**
+ * Admin role guard
+ */
+const AdminOnlyRoute = ({ children }) => {
+  const { role } = useFaultLens();
+  if (role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+};
+
+/**
+ * Public route wrapper that redirects already-authenticated users
+ */
+const PublicAuthRoute = ({ children }) => {
+  const { currentUser, isLoading, role } = useFaultLens();
+  if (isLoading) return null;
+  if (currentUser) {
+    return <Navigate to={role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  }
+  return children;
+};
+
 export function App() {
   return (
     <ToastProvider>
@@ -38,11 +85,25 @@ export function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/login"
+              element={
+                <PublicAuthRoute>
+                  <LoginPage />
+                </PublicAuthRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicAuthRoute>
+                  <RegisterPage />
+                </PublicAuthRoute>
+              }
+            />
 
             {/* Authenticated Dashboard Layout Routes */}
-            <Route element={<DashboardLayout />}>
+            <Route element={<ProtectedDashboard />}>
               {/* Developer Observability Routes */}
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/websites" element={<WebsitesPage />} />
@@ -55,11 +116,46 @@ export function App() {
               <Route path="/settings" element={<SettingsPage />} />
 
               {/* Admin Multi-Tenant Routes */}
-              <Route path="/admin" element={<AdminDashboardPage />} />
-              <Route path="/admin/users" element={<AdminUsersPage />} />
-              <Route path="/admin/websites" element={<AdminWebsitesPage />} />
-              <Route path="/admin/incidents" element={<AdminIncidentsPage />} />
-              <Route path="/admin/system-health" element={<AdminSystemHealthPage />} />
+              <Route
+                path="/admin"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminDashboardPage />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminUsersPage />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/websites"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminWebsitesPage />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/incidents"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminIncidentsPage />
+                  </AdminOnlyRoute>
+                }
+              />
+              <Route
+                path="/admin/system-health"
+                element={
+                  <AdminOnlyRoute>
+                    <AdminSystemHealthPage />
+                  </AdminOnlyRoute>
+                }
+              />
 
               {/* Catch-all unknown routes inside dashboard */}
               <Route path="/dashboard/*" element={<NotFoundPage inDashboard={true} />} />

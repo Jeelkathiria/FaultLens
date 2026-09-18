@@ -25,65 +25,27 @@ export const LoginPage = () => {
 
     try {
       const res = await authService.login({ email, password });
-      if (res && res.user) {
+      if (res && res.user && res.token) {
+        localStorage.setItem('faultlens_token', res.token);
         if (setCurrentUser) setCurrentUser(res.user);
-        const targetRole = res.user.role === 'ADMIN' ? 'admin' : 'developer';
-        switchRole(targetRole);
-      } else {
-        switchRole('developer');
-      }
 
-      if (refreshBackendData) refreshBackendData();
-
-      addToast({
-        title: 'Authentication Successful',
-        message: 'Welcome back to FaultLens workspace',
-        type: 'success'
-      });
-
-      navigate(email.includes('admin') ? '/admin' : '/dashboard');
-    } catch (err) {
-      console.warn('Backend login fallback:', err.message);
-      // Fallback for instant client offline demo
-      if (email.includes('admin')) {
-        switchRole('admin');
-        navigate('/admin');
-      } else {
-        switchRole('developer');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAdminDirectAccess = async () => {
-    setIsLoading(true);
-    setErrorMessage('');
-    try {
-      const res = await authService.login({ email: 'admin@faultlens.dev', password: 'Admin123!' });
-      if (res && res.user) {
-        if (setCurrentUser) setCurrentUser(res.user);
-      }
-    } catch (err) {
-      console.warn('Backend admin login fallback:', err.message);
-      if (setCurrentUser) {
-        setCurrentUser({
-          id: 'admin-usr-01',
-          name: 'Sarah Connor',
-          email: 'admin@faultlens.dev',
-          role: 'ADMIN'
+        addToast({
+          title: 'Authentication Successful',
+          message: `Logged in as ${res.user.name} (${res.user.role})`,
+          type: 'success'
         });
+
+        navigate(res.user.role === 'ADMIN' ? '/admin' : '/dashboard');
       }
-    } finally {
-      switchRole('admin');
-      if (refreshBackendData) refreshBackendData();
+    } catch (err) {
+      setErrorMessage(err.message || 'Invalid email or password credentials');
       addToast({
-        title: 'Admin Session Activated',
-        message: 'Redirected directly to the Admin Section',
-        type: 'success'
+        title: 'Authentication Failed',
+        message: err.message || 'Invalid email or password credentials',
+        type: 'error'
       });
+    } finally {
       setIsLoading(false);
-      navigate('/admin');
     }
   };
 
@@ -187,28 +149,45 @@ export const LoginPage = () => {
                 </svg>
               </Link>
 
-              {/* Developer Test Pill Switchers */}
+              {/* Multi-Tenant Test Account Switchers */}
               <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg text-[11px] font-mono border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => handleQuickFill('jeel@faultlens.dev', 'Password123!', 'Developer')}
+                  onClick={() => handleQuickFill('developer@faultlens.dev', 'Developer@12345', 'Developer 1')}
                   className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
-                    email === 'jeel@faultlens.dev'
+                    email === 'developer@faultlens.dev'
                       ? 'bg-white text-indigo-700 shadow-xs'
                       : 'text-slate-500 hover:text-slate-800'
                   }`}
-                  title="Load Developer credentials"
+                  title="Load Developer 1 credentials (ShopSphere + FoodRush)"
                 >
                   <UserCheck className="w-3 h-3" />
-                  <span>Dev</span>
+                  <span>Dev 1</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleAdminDirectAccess}
-                  className="px-2.5 py-1 rounded font-semibold transition-all flex items-center gap-1 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-900 border border-purple-200 shadow-2xs cursor-pointer"
-                  title="Directly access Administrator section"
+                  onClick={() => handleQuickFill('dev2@faultlens.dev', 'Developer@12345', 'Developer 2')}
+                  className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
+                    email === 'dev2@faultlens.dev'
+                      ? 'bg-white text-emerald-700 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                  title="Load Developer 2 credentials (TaskFlow)"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                  <UserCheck className="w-3 h-3" />
+                  <span>Dev 2</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickFill('admin@faultlens.dev', 'Admin@12345', 'Platform Admin')}
+                  className={`px-2.5 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
+                    email === 'admin@faultlens.dev'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-900 border border-purple-200'
+                  }`}
+                  title="Load Admin credentials (All 3 websites)"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Admin</span>
                 </button>
               </div>

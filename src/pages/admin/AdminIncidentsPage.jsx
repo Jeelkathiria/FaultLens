@@ -2,7 +2,7 @@ import React from 'react';
 import { useFaultLens } from '../../context/FaultLensContext';
 import { StatusBadge } from '../../components/common/Badge';
 import { useNavigate } from 'react-router-dom';
-import { AlertOctagon, Clock, ArrowRight } from 'lucide-react';
+import { AlertOctagon, Clock, ArrowRight, Globe } from 'lucide-react';
 
 export const AdminIncidentsPage = () => {
   const navigate = useNavigate();
@@ -48,8 +48,15 @@ export const AdminIncidentsPage = () => {
                     </div>
                   </td>
                   <td className="py-3.5 px-5">
-                    <span className="font-mono text-slate-300 font-semibold">{inc.apiName || 'N/A'}</span>
-                    <span className="text-[11px] text-slate-500 block font-mono">({inc.websiteName || 'N/A'})</span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="font-mono text-slate-300 font-semibold">{inc.apiName || 'N/A'}</span>
+                      {inc.websiteName && (
+                        <span className="text-[11px] font-medium text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25 flex items-center gap-1 font-mono">
+                          <Globe className="w-2.5 h-2.5 text-indigo-400 shrink-0" />
+                          <span>{inc.websiteName}</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3.5 px-5">
                     <StatusBadge status={inc.severity || 'healthy'} size="xs" />

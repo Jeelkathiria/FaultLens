@@ -102,6 +102,74 @@ class UptimeService {
 
     return +(totalUptime / apis.length).toFixed(2);
   }
+
+  /**
+   * Calculate API health state (healthy, degraded, critical, unknown)
+   * @param {string} apiId
+   * @returns {Promise<'healthy' | 'degraded' | 'critical' | 'unknown'>}
+   */
+  async calculateApiHealth(apiId) {
+    const activeIncidents = await prisma.incident.findMany({
+      where: {
+        apiId,
+        status: { in: ['DETECTED', 'INVESTIGATING'] }
+      },
+      select: { severity: true }
+    });
+
+    const hasCriticalIncident = activeIncidents.some((i) => i.severity === 'critical');
+    if (hasCriticalIncident) return 'critical';
+
+    const hasWarningIncident = activeIncidents.some((i) => i.severity === 'warning');
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const total = await prisma.requestMetric.count({
+      where: { apiId, timestamp: { gte: oneHourAgo } }
+    });
+
+    if (total === 0) {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const dayTotal = await prisma.requestMetric.count({
+        where: { apiId, timestamp: { gte: oneDayAgo } }
+      });
+      if (dayTotal === 0) {
+        return hasWarningIncident ? 'degraded' : 'unknown';
+      }
+      return hasWarningIncident ? 'degraded' : 'healthy';
+    }
+
+    const errors = await prisma.requestMetric.count({
+      where: { apiId, timestamp: { gte: oneHourAgo }, statusCode: { gte: 500 } }
+    });
+
+    const errorRate = (errors / total) * 100;
+    if (errorRate > 5) return 'critical';
+    if (hasWarningIncident || errorRate >= 1) return 'degraded';
+
+    return 'healthy';
+  }
+
+  /**
+   * Calculate Website health state based on worst child API status
+   * (critical > degraded > unknown > healthy)
+   * @param {string} websiteId
+   * @returns {Promise<'healthy' | 'degraded' | 'critical' | 'unknown'>}
+   */
+  async calculateWebsiteHealth(websiteId) {
+    const apis = await prisma.api.findMany({
+      where: { websiteId },
+      select: { id: true }
+    });
+
+    if (apis.length === 0) return 'healthy';
+
+    const healths = await Promise.all(apis.map((a) => this.calculateApiHealth(a.id)));
+
+    if (healths.includes('critical')) return 'critical';
+    if (healths.includes('degraded')) return 'degraded';
+    if (healths.includes('unknown')) return 'unknown';
+    return 'healthy';
+  }
 }
 
 module.exports = new UptimeService();

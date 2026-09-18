@@ -138,8 +138,14 @@ export const WebsiteDetailsPage = () => {
           <div className="flex items-center gap-3">
             <AlertOctagon className="w-5 h-5 text-red-400 animate-pulse" />
             <div>
-              <div className="text-xs font-bold font-mono text-red-400">
-                ACTIVE INCIDENT {websiteIncidents[0].number}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold font-mono text-red-400">
+                  ACTIVE INCIDENT {websiteIncidents[0].number}
+                </span>
+                <span className="text-xs font-medium text-indigo-300 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/25 flex items-center gap-1 font-mono">
+                  <Globe className="w-3 h-3 text-indigo-400 shrink-0" />
+                  <span>{website.name}</span>
+                </span>
               </div>
               <div className="text-sm font-semibold text-slate-100 mt-0.5">
                 {websiteIncidents[0].title}

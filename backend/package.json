@@ -7,11 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node prisma/seed.js",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
+    "seed": "node src/scripts/seed_mongo.js",
     "test": "jest --detectOpenHandles --runInBand"
   },
   "keywords": [
@@ -26,7 +22,6 @@
   "author": "Jeel Kathiria",
   "license": "ISC",
   "dependencies": {
-    "@prisma/client": "^5.19.1",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.14.0",
     "cors": "^2.8.5",
@@ -37,6 +32,7 @@
     "helmet": "^7.1.0",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.10.1",
     "socket.io": "^4.7.5",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^10.0.0",
@@ -45,7 +41,6 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.1.4",
-    "prisma": "^5.19.1",
     "supertest": "^7.0.0"
   },
   "jest": {

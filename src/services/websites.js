@@ -40,5 +40,9 @@ export const websiteService = {
 
   deleteApi(apiId) {
     return api.delete(`/apis/${apiId}`);
+  },
+
+  checkApiNow(apiId) {
+    return api.post(`/apis/${apiId}/check`);
   }
 };

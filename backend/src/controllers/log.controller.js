@@ -1,6 +1,5 @@
 const prisma = require('../config/database');
 const { NotFoundError } = require('../utils/errors');
-const { mockLogs } = require('../utils/mockData');
 const logger = require('../utils/logger');
 
 class LogController {
@@ -13,8 +12,18 @@ class LogController {
 
       const where = {};
 
-      if (apiId) where.apiId = apiId;
-      if (websiteId) where.api = { websiteId };
+      if (req.user?.role !== 'ADMIN') {
+        where.api = { website: { userId: req.user.id } };
+      }
+
+      if (apiId) {
+        where.apiId = apiId;
+      }
+
+      if (websiteId) {
+        where.api = { ...(where.api || {}), websiteId };
+      }
+
       if (level && level !== 'ALL') where.level = level.toUpperCase();
       if (statusCode && statusCode !== 'ALL') where.statusCode = parseInt(statusCode, 10);
 
@@ -32,56 +41,46 @@ class LogController {
         ];
       }
 
-      let formatted = [];
-      try {
-        const logs = await prisma.log.findMany({
-          where,
-          orderBy: { timestamp: 'desc' },
-          take: parseInt(limit, 10),
-          include: {
-            api: {
-              include: { website: true }
-            }
+      const logs = await prisma.log.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: parseInt(limit, 10),
+        include: {
+          api: {
+            include: { website: true }
           }
-        });
-
-        if (logs && logs.length > 0) {
-          formatted = logs.map((l) => {
-            const d = new Date(l.timestamp);
-            const timeStr = d.toTimeString().split(' ')[0];
-            const meta = l.metadata || {};
-
-            return {
-              id: l.id,
-              timestamp: timeStr,
-              fullTimestamp: d.toISOString().replace('T', ' ').replace('Z', ''),
-              method: meta.method || l.api?.method || 'POST',
-              endpoint: meta.endpoint || l.api?.endpoint || '/api',
-              statusCode: l.statusCode || (l.level === 'ERROR' ? 500 : 200),
-              latency: meta.responseTime || meta.latency || (l.level === 'ERROR' ? 1842 : 120),
-              severity: l.level.toLowerCase(),
-              websiteId: l.api?.websiteId || 'w-ecommerce',
-              websiteName: l.api?.website?.name || 'My E-Commerce',
-              apiId: l.apiId,
-              apiName: l.api?.name || 'API Service',
-              ip: meta.ip || '192.168.4.11',
-              userAgent: meta.userAgent || 'Mozilla/5.0 (Client/1.0)',
-              message: l.message,
-              headers: meta.headers || {
-                'Content-Type': 'application/json',
-                'X-Request-ID': `req_${l.id.slice(0, 8)}`
-              },
-              payload: meta.payload || meta.body || null,
-              stackTrace: meta.stackTrace || (l.level === 'ERROR' ? `Error: ${l.message}\n    at processRequest (src/server.js:142:19)` : null)
-            };
-          });
-        } else {
-          formatted = mockLogs;
         }
-      } catch (dbErr) {
-        logger.warn(`Database query failed in getLogs (${dbErr.message}). Serving fallback dataset.`);
-        formatted = mockLogs;
-      }
+      });
+
+      const formatted = logs.map((l) => {
+        const d = new Date(l.timestamp);
+        const timeStr = d.toTimeString().split(' ')[0];
+        const meta = l.metadata || {};
+
+        return {
+          id: l.id,
+          timestamp: timeStr,
+          fullTimestamp: d.toISOString().replace('T', ' ').replace('Z', ''),
+          method: meta.method || l.api?.method || 'POST',
+          endpoint: meta.endpoint || l.api?.endpoint || '/api',
+          statusCode: l.statusCode || (l.level === 'ERROR' ? 500 : 200),
+          latency: meta.responseTime || meta.latency || (l.level === 'ERROR' ? 1842 : 120),
+          severity: l.level.toLowerCase(),
+          websiteId: l.api?.websiteId,
+          websiteName: l.api?.website?.name,
+          apiId: l.apiId,
+          apiName: l.api?.name || 'API Service',
+          ip: meta.ip || '192.168.4.11',
+          userAgent: meta.userAgent || 'Mozilla/5.0 (Client/1.0)',
+          message: l.message,
+          headers: meta.headers || {
+            'Content-Type': 'application/json',
+            'X-Request-ID': `req_${l.id.slice(0, 8)}`
+          },
+          payload: meta.payload || meta.body || null,
+          stackTrace: meta.stackTrace || (l.level === 'ERROR' ? `Error: ${l.message}\n    at processRequest (src/server.js:142:19)` : null)
+        };
+      });
 
       res.json({
         success: true,
@@ -99,23 +98,14 @@ class LogController {
     try {
       const { id } = req.params;
 
-      let log = null;
-      try {
-        log = await prisma.log.findUnique({
-          where: { id },
-          include: {
-            api: { include: { website: true } }
-          }
-        });
-      } catch (_) {
-        log = mockLogs.find((l) => l.id === id);
-      }
+      const log = await prisma.log.findUnique({
+        where: { id },
+        include: {
+          api: { include: { website: true } }
+        }
+      });
 
-      if (!log) {
-        log = mockLogs.find((l) => l.id === id);
-      }
-
-      if (!log) {
+      if (!log || (req.user?.role !== 'ADMIN' && log.api?.website?.userId !== req.user?.id)) {
         throw new NotFoundError('Log entry not found');
       }
 

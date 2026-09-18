@@ -2,39 +2,91 @@ const prisma = require('../config/database');
 const { NotFoundError, ForbiddenError } = require('../utils/errors');
 const uptimeService = require('../services/uptime.service');
 const metricService = require('../services/metric.service');
+const apiHealthChecker = require('../services/apiHealthChecker.service');
 
 class ApiController {
+  constructor() {
+    this.createApi = this.createApi.bind(this);
+    this.getApisByWebsite = this.getApisByWebsite.bind(this);
+    this.getApiById = this.getApiById.bind(this);
+    this.updateApi = this.updateApi.bind(this);
+    this.deleteApi = this.deleteApi.bind(this);
+    this.checkApiHealthNow = this.checkApiHealthNow.bind(this);
+    this.formatApi = this.formatApi.bind(this);
+  }
+
   /**
    * Create an API monitor under a website
    */
   async createApi(req, res, next) {
     try {
       const { websiteId } = req.params;
-      const { name, endpoint, method, healthCheckEndpoint, monitoringInterval } = req.body;
+      const {
+        name,
+        endpoint,
+        method,
+        healthCheckEndpoint,
+        monitoringInterval,
+        expectedStatusCode,
+        timeout
+      } = req.body;
 
       const website = await prisma.website.findUnique({
         where: { id: websiteId }
       });
 
-      if (!website) {
+      if (!website || (req.user.role !== 'ADMIN' && website.userId !== req.user.id)) {
         throw new NotFoundError('Website not found');
       }
 
-      if (req.user.role !== 'ADMIN' && website.userId !== req.user.id) {
-        throw new ForbiddenError('You do not have permission to add APIs to this website');
+      // Format endpoint (allow absolute URLs or relative paths)
+      const trimmedEndpoint = (endpoint || '').trim();
+      const isAbsolute = /^https?:\/\//i.test(trimmedEndpoint);
+      const formattedEndpoint = isAbsolute
+        ? trimmedEndpoint
+        : trimmedEndpoint.startsWith('/')
+        ? trimmedEndpoint
+        : `/${trimmedEndpoint}`;
+
+      // Format health check endpoint
+      let formattedHealthCheck = null;
+      if (healthCheckEndpoint && healthCheckEndpoint.trim()) {
+        const trimmedHealth = healthCheckEndpoint.trim();
+        formattedHealthCheck = /^https?:\/\//i.test(trimmedHealth)
+          ? trimmedHealth
+          : trimmedHealth.startsWith('/')
+          ? trimmedHealth
+          : `/${trimmedHealth}`;
+      } else {
+        formattedHealthCheck = isAbsolute ? formattedEndpoint : `${formattedEndpoint}/health`;
       }
 
-      const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+      // Parse monitoring interval to seconds
+      let parsedInterval = 60;
+      if (typeof monitoringInterval === 'number') {
+        parsedInterval = monitoringInterval;
+      } else if (typeof monitoringInterval === 'string') {
+        const match = monitoringInterval.trim().match(/^(\d+)([smhd]?)$/i);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          const unit = (match[2] || 's').toLowerCase();
+          if (unit === 'm') parsedInterval = val * 60;
+          else if (unit === 'h') parsedInterval = val * 3600;
+          else parsedInterval = val;
+        }
+      }
 
       const api = await prisma.api.create({
         data: {
           websiteId,
-          name,
+          name: name.trim(),
           endpoint: formattedEndpoint,
           method: (method || 'GET').toUpperCase(),
-          healthCheckEndpoint: healthCheckEndpoint || `${formattedEndpoint}/health`,
-          monitoringInterval: monitoringInterval || '60s',
-          status: 'healthy'
+          healthCheckEndpoint: formattedHealthCheck,
+          monitoringInterval: parsedInterval,
+          expectedStatusCode: Number(expectedStatusCode) || 200,
+          timeout: Number(timeout) || 10000,
+          status: 'UNKNOWN'
         }
       });
 
@@ -60,12 +112,8 @@ class ApiController {
         where: { id: websiteId }
       });
 
-      if (!website) {
+      if (!website || (req.user.role !== 'ADMIN' && website.userId !== req.user.id)) {
         throw new NotFoundError('Website not found');
-      }
-
-      if (req.user.role !== 'ADMIN' && website.userId !== req.user.id) {
-        throw new ForbiddenError('Access denied');
       }
 
       const apis = await prisma.api.findMany({
@@ -98,12 +146,8 @@ class ApiController {
         }
       });
 
-      if (!api) {
+      if (!api || (req.user.role !== 'ADMIN' && api.website?.userId !== req.user.id)) {
         throw new NotFoundError('API not found');
-      }
-
-      if (req.user.role !== 'ADMIN' && api.website.userId !== req.user.id) {
-        throw new ForbiddenError('Access denied');
       }
 
       const formatted = await this.formatApi(api);
@@ -130,10 +174,8 @@ class ApiController {
         include: { website: true }
       });
 
-      if (!existing) throw new NotFoundError('API not found');
-
-      if (req.user.role !== 'ADMIN' && existing.website.userId !== req.user.id) {
-        throw new ForbiddenError('Access denied');
+      if (!existing || (req.user.role !== 'ADMIN' && existing.website?.userId !== req.user.id)) {
+        throw new NotFoundError('API not found');
       }
 
       const updateData = {};
@@ -172,10 +214,8 @@ class ApiController {
         include: { website: true }
       });
 
-      if (!existing) throw new NotFoundError('API not found');
-
-      if (req.user.role !== 'ADMIN' && existing.website.userId !== req.user.id) {
-        throw new ForbiddenError('Access denied');
+      if (!existing || (req.user.role !== 'ADMIN' && existing.website?.userId !== req.user.id)) {
+        throw new NotFoundError('API not found');
       }
 
       await prisma.api.delete({ where: { id } });
@@ -185,6 +225,35 @@ class ApiController {
         data: {
           message: 'API monitor deleted successfully'
         }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Manually trigger an on-demand live health check for an API
+   * POST /api/v1/apis/:id/check
+   */
+  async checkApiHealthNow(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const api = await prisma.api.findUnique({
+        where: { id },
+        include: { website: true }
+      });
+
+      // Strict tenant isolation: unowned APIs return 404
+      if (!api || (req.user.role !== 'ADMIN' && api.website?.userId !== req.user.id)) {
+        throw new NotFoundError('API not found');
+      }
+
+      const result = await apiHealthChecker.checkApiHealth(id);
+
+      res.json({
+        success: true,
+        data: result
       });
     } catch (err) {
       next(err);
@@ -213,11 +282,31 @@ class ApiController {
       select: { id: true }
     });
 
-    const requestsCount = summary.totalRequests || totalRequests || 1200;
-    const errorRate = summary.overallErrorRate !== undefined ? summary.overallErrorRate : api.status === 'critical' ? 17.8 : api.status === 'degraded' ? 4.2 : 0.1;
-    const p95Latency = summary.p95Latency || (api.status === 'critical' ? 2800 : api.status === 'degraded' ? 640 : 120);
-    const p50Latency = summary.p50Latency || (api.status === 'critical' ? 620 : api.status === 'degraded' ? 280 : 45);
-    const p99Latency = summary.p99Latency || (api.status === 'critical' ? 4200 : api.status === 'degraded' ? 980 : 180);
+    const isUnknown = api.status === 'UNKNOWN' || api.status === 'unknown';
+    const isCritical = api.status === 'critical' || api.status === 'CRITICAL';
+    const isDegraded = api.status === 'degraded' || api.status === 'DEGRADED';
+
+    const requestsCount = summary.totalRequests || totalRequests || (isUnknown ? 0 : 1200);
+    const errorRate = summary.overallErrorRate !== undefined
+      ? summary.overallErrorRate
+      : isCritical
+      ? 17.8
+      : isDegraded
+      ? 4.2
+      : isUnknown
+      ? 0.0
+      : 0.1;
+
+    const p95Latency = summary.p95Latency || api.lastResponseTime || (isCritical ? 2800 : isDegraded ? 640 : isUnknown ? 0 : 120);
+    const p50Latency = summary.p50Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 0.8) : 0) || (isCritical ? 620 : isDegraded ? 280 : isUnknown ? 0 : 45);
+    const p99Latency = summary.p99Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 1.5) : 0) || (isCritical ? 4200 : isDegraded ? 980 : isUnknown ? 0 : 180);
+
+    const intervalVal = Number(api.monitoringInterval) || 60;
+
+    let lastResponseStr = 'N/A';
+    if (api.lastStatusCode) {
+      lastResponseStr = `${api.lastStatusCode} ${api.lastCheckSuccess ? 'OK' : 'ERR'}`;
+    }
 
     return {
       id: api.id,
@@ -226,7 +315,7 @@ class ApiController {
       endpoint: api.endpoint,
       method: api.method,
       status: api.status,
-      uptime: uptime || 99.95,
+      uptime: isUnknown && totalRequests === 0 ? 100.0 : (uptime || 99.95),
       p95Latency,
       p50Latency,
       p99Latency,
@@ -234,9 +323,18 @@ class ApiController {
       clientErrorRate: summary.clientErrorRate || 0,
       serverErrorRate: summary.serverErrorRate || 0,
       requestsCount,
-      monitoringInterval: api.monitoringInterval || '60s',
+      monitoringInterval: `${intervalVal}s`,
+      monitoringIntervalSec: intervalVal,
       healthCheckEndpoint: api.healthCheckEndpoint || `${api.endpoint}/health`,
-      lastChecked: 'Just now',
+      expectedStatusCode: api.expectedStatusCode || 200,
+      timeout: api.timeout || 10000,
+      lastCheckedAt: api.lastCheckedAt || null,
+      lastResponseTime: api.lastResponseTime || null,
+      lastStatusCode: api.lastStatusCode || null,
+      lastCheckSuccess: api.lastCheckSuccess !== undefined ? api.lastCheckSuccess : null,
+      lastError: api.lastError || null,
+      lastChecked: api.lastCheckedAt ? new Date(api.lastCheckedAt).toLocaleString() : 'Never',
+      lastResponse: lastResponseStr,
       correlatedIncidentId: activeIncident ? activeIncident.id : null,
       endpointsTable: [
         {

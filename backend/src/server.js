@@ -7,6 +7,7 @@ const { initSocket } = require('./websocket/socket');
 const { initMetricAggregationJob } = require('./jobs/metricAggregation.job');
 const { initAnomalyDetectionJob } = require('./jobs/anomalyDetection.job');
 const { initCleanupJob } = require('./jobs/cleanup.job');
+const { initApiHealthCheckJob } = require('./jobs/apiHealthCheck.job');
 
 const httpServer = http.createServer(app);
 
@@ -26,6 +27,7 @@ const server = httpServer.listen(env.PORT, () => {
   initMetricAggregationJob();
   initAnomalyDetectionJob();
   initCleanupJob();
+  initApiHealthCheckJob();
 });
 
 // Graceful shutdown handling

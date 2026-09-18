@@ -3,7 +3,6 @@ const logger = require('../utils/logger');
 const { NotFoundError, BadRequestError } = require('../utils/errors');
 const correlationService = require('./correlation.service');
 const { emitIncidentCreated, emitIncidentUpdated, emitIncidentResolved } = require('../websocket/socket');
-const { mockIncidents } = require('../utils/mockData');
 
 class IncidentService {
   /**
@@ -184,60 +183,42 @@ class IncidentService {
       });
 
       if (!incidents || incidents.length === 0) {
-        let result = mockIncidents;
-        if (filters.status && filters.status !== 'ALL') {
-          result = result.filter((i) => i.status.toLowerCase() === filters.status.toLowerCase());
-        }
-        if (filters.severity && filters.severity !== 'ALL') {
-          result = result.filter((i) => i.severity.toLowerCase() === filters.severity.toLowerCase());
-        }
-        return result;
+        return [];
       }
 
       return Promise.all(incidents.map((inc) => this.formatIncident(inc)));
     } catch (err) {
-      logger.warn(`Database query failed in getIncidents (${err.message}). Serving fallback dataset.`);
-      let result = mockIncidents;
-      if (filters.status && filters.status !== 'ALL') {
-        result = result.filter((i) => i.status.toLowerCase() === filters.status.toLowerCase());
-      }
-      if (filters.severity && filters.severity !== 'ALL') {
-        result = result.filter((i) => i.severity.toLowerCase() === filters.severity.toLowerCase());
-      }
-      return result;
+      logger.error(`Database query failed in getIncidents: ${err.message}`);
+      return [];
     }
   }
 
   /**
    * Get single incident by ID
    */
-  async getIncidentById(id) {
-    try {
-      const incident = await prisma.incident.findUnique({
-        where: { id },
-        include: {
-          api: {
-            include: { website: true }
-          },
-          anomaly: true,
-          events: {
-            orderBy: { timestamp: 'asc' }
-          }
+  async getIncidentById(id, userId = null, isAdmin = false) {
+    const incident = await prisma.incident.findUnique({
+      where: { id },
+      include: {
+        api: {
+          include: { website: true }
+        },
+        anomaly: true,
+        events: {
+          orderBy: { timestamp: 'asc' }
         }
-      });
-
-      if (!incident) {
-        const fallback = mockIncidents.find((i) => i.id === id);
-        if (fallback) return fallback;
-        throw new NotFoundError('Incident not found');
       }
+    });
 
-      return this.formatIncident(incident);
-    } catch (err) {
-      if (err instanceof NotFoundError) throw err;
-      const fallback = mockIncidents.find((i) => i.id === id) || mockIncidents[0];
-      return fallback;
+    if (!incident) {
+      throw new NotFoundError('Incident not found');
     }
+
+    if (!isAdmin && userId && incident.api?.website?.userId !== userId) {
+      throw new NotFoundError('Incident not found');
+    }
+
+    return this.formatIncident(incident);
   }
 
   /**
@@ -253,10 +234,14 @@ class IncidentService {
 
     const incident = await prisma.incident.findUnique({
       where: { id },
-      include: { api: true }
+      include: { api: { include: { website: true } } }
     });
 
     if (!incident) {
+      throw new NotFoundError('Incident not found');
+    }
+
+    if (user && user.role !== 'ADMIN' && incident.api?.website?.userId !== user.id) {
       throw new NotFoundError('Incident not found');
     }
 

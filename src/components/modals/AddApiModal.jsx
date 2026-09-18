@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useFaultLens } from '../../context/FaultLensContext';
-import { Network, Activity, Clock } from 'lucide-react';
+import { Network, Activity, Clock, ShieldCheck, Timer } from 'lucide-react';
 
 export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
   const { addApi } = useFaultLens();
@@ -10,21 +10,24 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
   const [endpoint, setEndpoint] = useState('');
   const [method, setMethod] = useState('GET');
   const [healthCheckEndpoint, setHealthCheckEndpoint] = useState('');
-  const [monitoringInterval, setMonitoringInterval] = useState('30s');
+  const [monitoringInterval, setMonitoringInterval] = useState('60s');
+  const [expectedStatusCode, setExpectedStatusCode] = useState(200);
+  const [timeoutMs, setTimeoutMs] = useState(10000);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
     if (!name.trim()) {
       newErrors.name = 'API Name is required';
     }
-    if (!endpoint.trim()) {
-      newErrors.endpoint = 'Endpoint path is required';
-    } else if (!endpoint.startsWith('/')) {
-      newErrors.endpoint = 'Endpoint must begin with a forward slash (e.g. /api/users)';
+    const trimmedEndpoint = endpoint.trim();
+    if (!trimmedEndpoint) {
+      newErrors.endpoint = 'Endpoint path or URL is required';
+    } else if (!trimmedEndpoint.startsWith('/') && !/^https?:\/\//i.test(trimmedEndpoint)) {
+      newErrors.endpoint = 'Must be an absolute URL (https://...) or begin with / (e.g. /api/users)';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -33,23 +36,30 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      addApi(websiteId, {
+    try {
+      await addApi(websiteId, {
         name: name.trim(),
-        endpoint: endpoint.trim(),
+        endpoint: trimmedEndpoint,
         method,
-        healthCheckEndpoint: healthCheckEndpoint.trim() || `${endpoint.trim()}/health`,
-        monitoringInterval
+        healthCheckEndpoint: healthCheckEndpoint.trim() || undefined,
+        monitoringInterval,
+        expectedStatusCode: Number(expectedStatusCode) || 200,
+        timeout: Number(timeoutMs) || 10000
       });
-      setIsSubmitting(false);
       setName('');
       setEndpoint('');
       setMethod('GET');
       setHealthCheckEndpoint('');
-      setMonitoringInterval('30s');
+      setMonitoringInterval('60s');
+      setExpectedStatusCode(200);
+      setTimeoutMs(10000);
       setErrors({});
       onClose();
-    }, 300);
+    } catch (_) {
+      // Error toast is handled in FaultLensContext
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -63,9 +73,9 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
             value={name}
             onChange={(e) => {
               setName(e.target.value);
-              if (errors.name) setErrors(prev => ({ ...prev, name: null }));
+              if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
             }}
-            placeholder="e.g. Payment Gateway or User Auth Service"
+            placeholder="e.g. Get Post or Payment Gateway"
             className={`w-full px-3.5 py-2.5 rounded-lg bg-[#080B12] border text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors ${
               errors.name ? 'border-red-500/80' : 'border-[#1E2633]'
             }`}
@@ -75,7 +85,7 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
 
         {/* Method & Endpoint Row */}
         <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1.5">HTTP Method & Path *</label>
+          <label className="block text-xs font-medium text-slate-300 mb-1.5">HTTP Method & Path or URL *</label>
           <div className="flex gap-2">
             <select
               value={method}
@@ -95,9 +105,9 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
                 value={endpoint}
                 onChange={(e) => {
                   setEndpoint(e.target.value);
-                  if (errors.endpoint) setErrors(prev => ({ ...prev, endpoint: null }));
+                  if (errors.endpoint) setErrors((prev) => ({ ...prev, endpoint: null }));
                 }}
-                placeholder="/api/v1/payments"
+                placeholder="/api/v1/posts or https://api.example.com/posts/1"
                 className={`w-full px-3.5 py-2.5 rounded-lg bg-[#080B12] border text-sm text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors ${
                   errors.endpoint ? 'border-red-500/80' : 'border-[#1E2633]'
                 }`}
@@ -110,25 +120,49 @@ export const AddApiModal = ({ isOpen, onClose, websiteId, websiteName }) => {
         {/* Health Check Endpoint */}
         <div>
           <label className="block text-xs font-medium text-slate-300 mb-1.5">
-            Dedicated Health Check URL (Optional)
+            Dedicated Health Check URL / Endpoint (Optional)
           </label>
           <input
             type="text"
             value={healthCheckEndpoint}
             onChange={(e) => setHealthCheckEndpoint(e.target.value)}
-            placeholder="e.g. /api/v1/payments/health (Defaults to {endpoint}/health)"
+            placeholder="e.g. https://api.example.com/health or /health"
             className="w-full px-3.5 py-2.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-sm text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:border-indigo-500 transition-colors"
           />
         </div>
 
+        {/* Expected Status Code & Timeout Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Expected Status Code</label>
+            <input
+              type="number"
+              value={expectedStatusCode}
+              onChange={(e) => setExpectedStatusCode(e.target.value)}
+              placeholder="200"
+              className="w-full px-3.5 py-2 rounded-lg bg-[#080B12] border border-[#1E2633] text-sm text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1.5">Timeout (ms)</label>
+            <input
+              type="number"
+              value={timeoutMs}
+              onChange={(e) => setTimeoutMs(e.target.value)}
+              placeholder="10000"
+              className="w-full px-3.5 py-2 rounded-lg bg-[#080B12] border border-[#1E2633] text-sm text-slate-100 placeholder:text-slate-500 font-mono focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+        </div>
+
         {/* Monitoring Interval */}
         <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1.5">Telemetry Interval</label>
+          <label className="block text-xs font-medium text-slate-300 mb-1.5">Monitoring Interval</label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'High Precision', val: '30s' },
-              { label: 'Standard', val: '60s' },
-              { label: 'Lightweight', val: '5m' }
+              { label: 'Standard (1m)', val: '60s' },
+              { label: 'Lightweight (5m)', val: '5m' }
             ].map((opt) => (
               <button
                 type="button"
