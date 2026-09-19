@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ FaultLens
+#  FaultLens
 
 **Developer-First Observability, API Monitoring & Incident Correlation Platform**
 
