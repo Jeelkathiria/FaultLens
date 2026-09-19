@@ -466,6 +466,47 @@ export const FaultLensProvider = ({ children }) => {
     }, 3500);
   }, [addToast]);
 
+  const simulateIncident = useCallback(
+    async ({ apiId, title, description, severity }) => {
+      try {
+        const res = await incidentService.simulateIncident({ apiId, title, description, severity });
+        if (res) {
+          setIncidents((prev) => {
+            const exists = prev.some((i) => i.id === res.id);
+            if (exists) return prev.map((i) => (i.id === res.id ? { ...i, ...res } : i));
+            return [res, ...prev];
+          });
+          setApis((prev) =>
+            prev.map((a) => (a.id === apiId ? { ...a, status: (severity || 'critical').toLowerCase(), correlatedIncidentId: res.id } : a))
+          );
+          if (res.websiteId) {
+            setWebsites((prev) =>
+              prev.map((w) =>
+                w.id === res.websiteId
+                  ? { ...w, health: (severity || 'critical').toLowerCase(), activeIncidents: (w.activeIncidents || 0) + 1 }
+                  : w
+              )
+            );
+          }
+          addToast({
+            title: `🚨 Incident Simulated: ${res.number || ''}`,
+            message: res.title || 'Observability incident created',
+            type: 'critical'
+          });
+          return res;
+        }
+      } catch (err) {
+        addToast({
+          title: 'Simulation Failed',
+          message: err.message || 'Failed to simulate incident',
+          type: 'error'
+        });
+        throw err;
+      }
+    },
+    [addToast]
+  );
+
   return (
     <FaultLensContext.Provider
       value={{
@@ -488,6 +529,7 @@ export const FaultLensProvider = ({ children }) => {
         updateIncidentStatus,
         toggleUserStatus,
         refreshBackendData,
+        simulateIncident,
         isLiveSimulation,
         toggleLiveSimulation: () => {
           setIsLiveSimulation((prev) => !prev);

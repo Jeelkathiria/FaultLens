@@ -3,10 +3,10 @@ const env = require('./env');
 const logger = require('../utils/logger');
 const models = require('../models');
 
-// Configure mongoose settings
+// Configure mongoose settings for pure MongoDB operation
 mongoose.set('strictQuery', false);
 
-// Connect to MongoDB (skip in test environment)
+// Connect to MongoDB
 if (!env.isTest) {
   mongoose
     .connect(env.MONGODB_URI, {
@@ -29,7 +29,18 @@ mongoose.connection.on('disconnected', () => {
 });
 
 /**
- * Helper to translate Prisma-style 'where' clauses into Mongoose query filters
+ * Helper to convert Mongoose doc to clean plain object with 'id'
+ */
+function formatDoc(doc) {
+  if (!doc) return null;
+  const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  obj.id = obj._id || obj.id;
+  delete obj.__v;
+  return obj;
+}
+
+/**
+ * Translate query filters into native Mongoose query filters
  */
 async function translateWhere(where = {}, modelName = '') {
   if (!where || typeof where !== 'object') return {};
@@ -52,24 +63,36 @@ async function translateWhere(where = {}, modelName = '') {
         query._id = val;
       }
     } else if (key === 'api' && val && typeof val === 'object') {
-      let targetApiIds = null;
-      if (val.websiteId) {
-        const targetWebsiteId = val.websiteId;
-        if (typeof targetWebsiteId === 'object' && targetWebsiteId.in) {
-          const apis = await models.Api.find({ websiteId: { $in: targetWebsiteId.in } }).select('_id');
-          targetApiIds = apis.map((a) => a._id);
-        } else {
-          const apis = await models.Api.find({ websiteId: targetWebsiteId }).select('_id');
-          targetApiIds = apis.map((a) => a._id);
-        }
-      } else if (val.website && val.website.userId) {
+      // Handle multi-tenant website / user ownership filters
+      let matchingApiIds = null;
+
+      if (val.website && val.website.userId) {
         const userWebsites = await models.Website.find({ userId: val.website.userId }).select('_id');
         const userWebsiteIds = userWebsites.map((w) => w._id);
-        const apis = await models.Api.find({ websiteId: { $in: userWebsiteIds } }).select('_id');
-        targetApiIds = apis.map((a) => a._id);
+
+        let targetWebsiteIds = userWebsiteIds;
+        if (val.websiteId) {
+          if (typeof val.websiteId === 'object' && val.websiteId.in) {
+            targetWebsiteIds = val.websiteId.in.filter((id) => userWebsiteIds.includes(id));
+          } else {
+            targetWebsiteIds = userWebsiteIds.includes(val.websiteId) ? [val.websiteId] : [];
+          }
+        }
+
+        const apis = await models.Api.find({ websiteId: { $in: targetWebsiteIds } }).select('_id');
+        matchingApiIds = apis.map((a) => a._id);
+      } else if (val.websiteId) {
+        if (typeof val.websiteId === 'object' && val.websiteId.in) {
+          const apis = await models.Api.find({ websiteId: { $in: val.websiteId.in } }).select('_id');
+          matchingApiIds = apis.map((a) => a._id);
+        } else {
+          const apis = await models.Api.find({ websiteId: val.websiteId }).select('_id');
+          matchingApiIds = apis.map((a) => a._id);
+        }
       }
-      if (targetApiIds !== null) {
-        query.apiId = { $in: targetApiIds };
+
+      if (matchingApiIds !== null) {
+        query.apiId = { $in: matchingApiIds };
       }
     } else if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
       const fieldOps = {};
@@ -94,7 +117,7 @@ async function translateWhere(where = {}, modelName = '') {
 }
 
 /**
- * Helper to translate Prisma orderBy { timestamp: 'desc' } -> { timestamp: -1 }
+ * Translate orderBy { timestamp: 'desc' } -> { timestamp: -1 }
  */
 function translateOrderBy(orderBy) {
   if (!orderBy) return {};
@@ -102,31 +125,20 @@ function translateOrderBy(orderBy) {
     const sort = {};
     orderBy.forEach((item) => {
       Object.entries(item).forEach(([k, v]) => {
-        sort[k === 'id' ? '_id' : k] = v.toLowerCase() === 'asc' ? 1 : -1;
+        sort[k === 'id' ? '_id' : k] = String(v).toLowerCase() === 'asc' ? 1 : -1;
       });
     });
     return sort;
   }
   const sort = {};
   Object.entries(orderBy).forEach(([k, v]) => {
-    sort[k === 'id' ? '_id' : k] = v.toLowerCase() === 'asc' ? 1 : -1;
+    sort[k === 'id' ? '_id' : k] = String(v).toLowerCase() === 'asc' ? 1 : -1;
   });
   return sort;
 }
 
 /**
- * Helper to convert Mongoose doc to clean object with 'id'
- */
-function formatDoc(doc) {
-  if (!doc) return null;
-  const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
-  obj.id = obj._id || obj.id;
-  delete obj.__v;
-  return obj;
-}
-
-/**
- * Resolve include relations
+ * Resolve relations for populated results
  */
 async function resolveIncludes(item, include, modelName) {
   if (!item || !include) return item;
@@ -183,8 +195,18 @@ async function resolveIncludes(item, include, modelName) {
       }
       item.api = apiObj;
     }
+    if (include.website || !item.websiteId) {
+      if (item.websiteId) {
+        const w = await models.Website.findById(item.websiteId);
+        item.website = formatDoc(w);
+      } else if (item.api?.websiteId) {
+        item.websiteId = item.api.websiteId;
+        const w = await models.Website.findById(item.api.websiteId);
+        item.website = formatDoc(w);
+      }
+    }
     if (include.events) {
-      const sort = include.events.orderBy ? translateOrderBy(include.events.orderBy) : { timestamp: -1 };
+      const sort = include.events.orderBy ? translateOrderBy(include.events.orderBy) : { timestamp: 1 };
       const events = await models.IncidentEvent.find({ incidentId: item.id }).sort(sort);
       item.events = events.map(formatDoc);
     }
@@ -231,10 +253,12 @@ async function resolveIncludes(item, include, modelName) {
 }
 
 /**
- * Creates a Prisma-compatible client facade around a Mongoose model
+ * Creates a clean MongoDB adapter around a Mongoose model
  */
 function createAdapter(Model, modelName) {
   return {
+    model: Model,
+
     async findUnique(args = {}) {
       const where = await translateWhere(args.where, modelName);
       let query = Model.findOne(where);
@@ -371,6 +395,23 @@ function createAdapter(Model, modelName) {
 }
 
 const db = {
+  mongoose,
+  models,
+
+  // Direct access to native Mongoose models
+  User: models.User,
+  Website: models.Website,
+  Api: models.Api,
+  ApiKey: models.ApiKey,
+  RequestMetric: models.RequestMetric,
+  MetricAggregate: models.MetricAggregate,
+  Anomaly: models.Anomaly,
+  Incident: models.Incident,
+  IncidentEvent: models.IncidentEvent,
+  Deployment: models.Deployment,
+  Log: models.Log,
+
+  // Clean data access adapters
   user: createAdapter(models.User, 'User'),
   website: createAdapter(models.Website, 'Website'),
   api: createAdapter(models.Api, 'Api'),
@@ -383,24 +424,9 @@ const db = {
   deployment: createAdapter(models.Deployment, 'Deployment'),
   log: createAdapter(models.Log, 'Log'),
 
-  models,
-
   async $disconnect() {
     await mongoose.disconnect();
-  },
-
-  async $queryRaw() {
-    if (mongoose.connection.readyState === 1) {
-      return [{ 1: 1 }];
-    }
-    throw new Error('MongoDB not connected');
-  },
-
-  async $runCommandRaw(cmd) {
-    return mongoose.connection.db.command(cmd);
-  },
-
-  $on() {}
+  }
 };
 
 module.exports = db;

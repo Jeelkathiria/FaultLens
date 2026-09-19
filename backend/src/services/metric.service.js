@@ -268,13 +268,13 @@ class MetricService {
           version: '7.2-alpine'
         },
         {
-          name: 'PostgreSQL Database',
-          description: 'Distributed TimescaleDB telemetry cluster',
+          name: 'MongoDB Database',
+          description: 'Primary document datastore for multi-tenant users, websites, APIs, metrics, and incidents',
           status: 'healthy',
           uptime: '99.99%',
-          latency: '12ms',
-          throughput: '820 writes/sec',
-          version: 'PostgreSQL 16'
+          latency: '2ms',
+          throughput: '1,420 ops/sec',
+          version: 'MongoDB 8.x'
         },
         {
           name: 'WebSocket Server',

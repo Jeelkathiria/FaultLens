@@ -5,6 +5,7 @@ const incidentSchema = new mongoose.Schema(
   {
     _id: { type: String, default: uuidv4 },
     apiId: { type: String, required: true, ref: 'Api', index: true },
+    websiteId: { type: String, ref: 'Website', index: true },
     anomalyId: { type: String, default: null, ref: 'Anomaly' },
     title: { type: String, required: true },
     description: { type: String, required: true },
@@ -41,6 +42,7 @@ const incidentSchema = new mongoose.Schema(
 );
 
 incidentSchema.index({ apiId: 1, status: 1 });
+incidentSchema.index({ websiteId: 1, status: 1 });
 
 incidentSchema.virtual('id').get(function () {
   return this._id;

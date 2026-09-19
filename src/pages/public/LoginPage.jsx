@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, ShieldCheck, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, UserCheck, ArrowLeft, Home } from 'lucide-react';
 import { useFaultLens } from '../../context/FaultLensContext';
 import { useToast } from '../../context/ToastContext';
 import { authService } from '../../services/auth';
@@ -113,41 +113,66 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#EAEFF6] flex items-center justify-center p-3 sm:p-6 lg:p-10 font-sans">
+    <div className="min-h-screen bg-[#EAEFF6] flex flex-col items-center justify-center p-3 sm:p-6 lg:p-10 font-sans">
+      {/* Top Floating / Header Back to Landing Page Link */}
+      <div className="w-full max-w-5xl mb-3 flex items-center justify-between px-1">
+        <Link
+          to="/"
+          id="btn-back-landing-top"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-indigo-600 transition-all py-1.5 px-3 rounded-xl bg-white/80 hover:bg-white border border-slate-200 shadow-2xs group"
+          title="Return to FaultLens Landing Page"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform text-slate-500 group-hover:text-indigo-600" />
+          <span>← Back to Landing Page</span>
+        </Link>
+      </div>
+
       {/* Outer Card Container */}
       <div className="w-full max-w-5xl bg-white rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18)] grid grid-cols-1 lg:grid-cols-12 border border-slate-100">
         
         {/* LEFT COLUMN: Clean White Form Panel (7 cols on lg) */}
         <div className="lg:col-span-6 xl:col-span-6 flex flex-col justify-between p-7 sm:p-10 lg:p-12 bg-white">
           <div>
-            {/* Top Brand Logo: Stylized Geometric Crown Icon matching the reference */}
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/" className="inline-flex items-center gap-2 group">
-                <svg
-                  width="36"
-                  height="36"
-                  viewBox="0 0 40 40"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="group-hover:scale-105 transition-transform"
+            {/* Top Brand Logo & Landing Page Button: Stylized Geometric Crown Icon matching the reference */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-2.5">
+                <Link to="/" className="inline-flex items-center gap-2 group" title="FaultLens Home">
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 40 40"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="group-hover:scale-105 transition-transform"
+                  >
+                    {/* Geometric Crown Emblem */}
+                    <path
+                      d="M20 4L26 14L34 8L31 28H9L6 8L14 14L20 4Z"
+                      fill="#4F46E5"
+                    />
+                    <path
+                      d="M11 31H29V34H11V31Z"
+                      fill="#4338CA"
+                      rx="1.5"
+                    />
+                    {/* Diamond Center */}
+                    <polygon
+                      points="20,11 23,16 20,21 17,16"
+                      fill="#EEF2FF"
+                    />
+                  </svg>
+                </Link>
+
+                <Link
+                  to="/"
+                  id="btn-back-landing-header"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100/90 hover:bg-indigo-50/80 border border-slate-200/90 hover:border-indigo-200 rounded-lg transition-all shadow-2xs group"
+                  title="Return to Landing Page"
                 >
-                  {/* Geometric Crown Emblem */}
-                  <path
-                    d="M20 4L26 14L34 8L31 28H9L6 8L14 14L20 4Z"
-                    fill="#4F46E5"
-                  />
-                  <path
-                    d="M11 31H29V34H11V31Z"
-                    fill="#4338CA"
-                    rx="1.5"
-                  />
-                  {/* Diamond Center */}
-                  <polygon
-                    points="20,11 23,16 20,21 17,16"
-                    fill="#EEF2FF"
-                  />
-                </svg>
-              </Link>
+                  <Home className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+                  <span>Landing Page</span>
+                </Link>
+              </div>
 
               {/* Multi-Tenant Test Account Switchers */}
               <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-lg text-[11px] font-mono border border-slate-200">
@@ -333,11 +358,21 @@ export const LoginPage = () => {
             </button>
           </div>
 
-          {/* Footer Register Link */}
-          <div className="mt-8 text-center text-xs text-slate-600 font-normal">
-            Don't have an account ?{' '}
-            <Link to="/register" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline transition-colors">
-              Register here
+          {/* Footer Register & Landing Page Links */}
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600 font-normal">
+            <div>
+              Don't have an account ?{' '}
+              <Link to="/register" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline transition-colors">
+                Register here
+              </Link>
+            </div>
+            <Link
+              to="/"
+              id="btn-back-landing-footer"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 font-medium transition-colors group"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Landing Page</span>
             </Link>
           </div>
         </div>

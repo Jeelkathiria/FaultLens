@@ -112,8 +112,10 @@ export const Topbar = ({ onOpenMobileNav }) => {
 
         {/* Explicit Logout Button for tenant testing */}
         <button
-          onClick={() => {
-            logout();
+          type="button"
+          id="btn-topbar-logout"
+          onClick={async () => {
+            if (logout) await logout();
             navigate('/login');
           }}
           className="p-2 px-2.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors flex items-center gap-1.5 text-xs font-medium cursor-pointer"

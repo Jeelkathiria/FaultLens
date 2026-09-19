@@ -76,7 +76,7 @@ class AdminController {
   }
 
   /**
-   * System health check covering PostgreSQL, Redis, Monitoring Engine, WebSocket
+   * System health check covering MongoDB, Redis, Monitoring Engine, WebSocket
    * Returns operational status: OPERATIONAL, DEGRADED, DOWN per component
    */
   async getSystemHealth(req, res, next) {

@@ -19,5 +19,9 @@ export const incidentService = {
 
   resolve(id) {
     return api.post(`/incidents/${id}/resolve`);
+  },
+
+  simulateIncident(data) {
+    return api.post('/incidents/simulate', data);
   }
 };

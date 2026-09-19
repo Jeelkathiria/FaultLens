@@ -31,6 +31,24 @@ class WebsiteController {
         }
       });
 
+      // Auto-provision initial primary API route for instant observability
+      try {
+        const isHttpBin = (name || '').toLowerCase().includes('httpbin') || (url || '').toLowerCase().includes('httpbin');
+        await prisma.api.create({
+          data: {
+            websiteId: website.id,
+            name: isHttpBin ? 'GET Route' : 'Root Endpoint',
+            endpoint: isHttpBin ? '/get' : '/',
+            method: 'GET',
+            healthCheckEndpoint: isHttpBin ? '/get' : '/',
+            monitoringInterval: 30,
+            expectedStatusCode: 200,
+            timeout: 10000,
+            status: 'HEALTHY'
+          }
+        });
+      } catch (_) {}
+
       const formatted = await this.formatWebsite(website);
 
       res.status(201).json({

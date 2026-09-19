@@ -103,6 +103,32 @@ class IncidentController {
       next(err);
     }
   }
+
+  /**
+   * Simulate / Trigger a test incident for testing observability
+   * POST /api/v1/incidents/simulate
+   */
+  async simulateIncident(req, res, next) {
+    try {
+      const { apiId, title, description, severity } = req.body;
+      if (!apiId) {
+        return res.status(400).json({ success: false, message: 'apiId is required' });
+      }
+
+      const incident = await incidentService.simulateIncident(
+        apiId,
+        { title, description, severity },
+        req.user
+      );
+
+      res.status(201).json({
+        success: true,
+        data: incident
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new IncidentController();

@@ -44,5 +44,9 @@ export const websiteService = {
 
   checkApiNow(apiId) {
     return api.post(`/apis/${apiId}/check`);
+  },
+
+  getSubEndpoints(apiId, timeRange = '24h') {
+    return api.get(`/apis/${apiId}/sub-endpoints?timeRange=${timeRange}`);
   }
 };

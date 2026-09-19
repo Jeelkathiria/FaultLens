@@ -343,6 +343,7 @@ async function seed() {
   const incident1042 = await models.Incident.create({
     _id: 'inc-1042',
     apiId: paymentsApi._id,
+    websiteId: shopSphereWeb._id,
     anomalyId: anomaly._id,
     title: 'Error rate & latency spike on Payments API',
     description: 'Error rate increased sharply to 17.8% with P95 latency degraded to 2.8s',

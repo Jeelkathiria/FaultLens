@@ -19,7 +19,7 @@ import {
 import { useFaultLens } from '../../context/FaultLensContext';
 
 export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
-  const { role, switchRole, incidents, currentUser } = useFaultLens();
+  const { role, switchRole, incidents, currentUser, logout } = useFaultLens();
   const navigate = useNavigate();
 
   const activeIncidentsCount = incidents.filter(i => i.severity !== 'resolved' && i.status !== 'resolved').length;
@@ -185,7 +185,7 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       <div className="p-3 border-t border-[#1E2633] bg-[#0B0F17]">
         <div
           className={`flex items-center gap-3 p-2 rounded-lg hover:bg-slate-800/60 transition-colors ${
-            isCollapsed ? 'justify-center' : ''
+            isCollapsed ? 'flex-col justify-center gap-2' : ''
           }`}
         >
           <div className="relative shrink-0">
@@ -203,7 +203,7 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#0F141D]" />
           </div>
 
-          {!isCollapsed && (
+          {!isCollapsed ? (
             <div className="flex-1 min-w-0">
               <div className="text-xs font-semibold text-slate-200 truncate">
                 {currentUser?.name || 'Developer'}
@@ -211,18 +211,31 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
               <div className="text-[11px] text-slate-400 capitalize flex items-center justify-between gap-1">
                 <span>{role === 'admin' ? 'Admin' : 'Developer'}</span>
                 <button
-                  onClick={() => {
-                    logout();
+                  type="button"
+                  onClick={async () => {
+                    if (logout) await logout();
                     navigate('/login');
                   }}
                   className="text-[10px] text-slate-400 hover:text-red-400 flex items-center gap-1 cursor-pointer transition-colors"
-                  title="Sign out"
+                  title="Sign out & go to Login"
                 >
                   <LogOut className="w-3 h-3" />
                   <span>Exit</span>
                 </button>
               </div>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={async () => {
+                if (logout) await logout();
+                navigate('/login');
+              }}
+              className="text-slate-400 hover:text-red-400 p-1 rounded hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
+              title="Sign out & go to Login"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
       </div>

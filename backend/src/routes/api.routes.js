@@ -22,6 +22,7 @@ router.post(
 router.get('/', apiController.getApisByWebsite);
 
 // Direct routes by API ID (/api/v1/apis/:id)
+router.get('/:id/sub-endpoints', apiController.getSubEndpoints);
 router.get('/:id', apiController.getApiById);
 router.patch('/:id', apiController.updateApi);
 router.delete('/:id', apiController.deleteApi);

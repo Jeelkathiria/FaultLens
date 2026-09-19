@@ -17,15 +17,17 @@ import {
   TrendingUp,
   Clock,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from 'lucide-react';
 
 export const WebsiteDetailsPage = () => {
   const { websiteId } = useParams();
   const navigate = useNavigate();
-  const { websites, apis, incidents } = useFaultLens();
+  const { websites, apis, incidents, simulateIncident, addApi } = useFaultLens();
 
   const [isAddApiOpen, setIsAddApiOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Find website
   const website = websites.find(w => w.id === websiteId) || websites[0];
@@ -47,8 +49,40 @@ export const WebsiteDetailsPage = () => {
     );
   }
 
-  const websiteApis = apis.filter(a => a.websiteId === website.id);
-  const websiteIncidents = incidents.filter(i => i.websiteId === website.id && i.severity !== 'resolved' && i.status !== 'resolved');
+  const websiteApis = apis.filter((a) => a.websiteId === website.id);
+  const websiteIncidents = incidents.filter(
+    (i) =>
+      (i.websiteId === website.id || websiteApis.some((a) => a.id === i.apiId)) &&
+      i.severity !== 'resolved' &&
+      i.status !== 'resolved'
+  );
+
+  const handleTriggerTestIncident = async () => {
+    setIsSimulating(true);
+    try {
+      let targetApi = websiteApis[0];
+      if (!targetApi && addApi) {
+        targetApi = await addApi(website.id, {
+          name: 'Root Endpoint',
+          endpoint: '/',
+          method: 'GET',
+          healthCheckEndpoint: '/'
+        });
+      }
+      if (targetApi && simulateIncident) {
+        await simulateIncident({
+          apiId: targetApi.id,
+          title: `Simulated 500 Outage on ${website.name}`,
+          description: `Automatic probe detected 4.5σ deviation on ${targetApi.name || targetApi.endpoint}`,
+          severity: 'critical'
+        });
+      }
+    } catch (err) {
+      console.error('Failed to trigger test incident:', err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -90,13 +124,27 @@ export const WebsiteDetailsPage = () => {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsAddApiOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-lg shadow-indigo-600/20 self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Add API</span>
-          </button>
+          <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+            <button
+              onClick={handleTriggerTestIncident}
+              disabled={isSimulating}
+              id="btn-trigger-test-incident"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-red-600/90 hover:bg-red-500 text-white text-xs font-semibold transition-all shadow-md shadow-red-600/20 disabled:opacity-50 cursor-pointer"
+              title="Simulate a real-time incident on this website"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isSimulating ? 'animate-spin' : ''}`} />
+              <span>{isSimulating ? 'Triggering...' : 'Trigger Test Incident'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsAddApiOpen(true)}
+              id="btn-add-api"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-lg shadow-indigo-600/20 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Add API</span>
+            </button>
+          </div>
         </div>
       </div>
 

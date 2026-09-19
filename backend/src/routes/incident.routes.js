@@ -21,5 +21,6 @@ router.patch(
 
 router.post('/:id/acknowledge', authenticate, incidentController.acknowledgeIncident);
 router.post('/:id/resolve', authenticate, incidentController.resolveIncident);
+router.post('/simulate', authenticate, incidentController.simulateIncident);
 
 module.exports = router;

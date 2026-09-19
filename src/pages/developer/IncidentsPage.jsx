@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFaultLens } from '../../context/FaultLensContext';
 import { StatusBadge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { SimulateIncidentModal } from '../../components/modals/SimulateIncidentModal';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -14,7 +15,8 @@ import {
   ChevronRight,
   TrendingUp,
   Activity,
-  Globe
+  Globe,
+  Zap
 } from 'lucide-react';
 
 export const IncidentsPage = () => {
@@ -32,6 +34,7 @@ export const IncidentsPage = () => {
 
   const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'critical' | 'warning' | 'resolved'
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSimulateModalOpen, setIsSimulateModalOpen] = useState(false);
 
   const filteredIncidents = incidents.filter((inc) => {
     if (activeFilter !== 'ALL') {
@@ -65,10 +68,20 @@ export const IncidentsPage = () => {
           <p className="text-xs text-slate-400 mt-1">Automatically detected abnormal behavior and regressions.</p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <span className="text-xs text-slate-400 font-mono">
             {incidents.filter(i => i.severity !== 'resolved' && i.status !== 'resolved').length} Active
           </span>
+
+          <button
+            onClick={() => setIsSimulateModalOpen(true)}
+            id="btn-simulate-incident-page"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-all shadow-md shadow-red-600/20 cursor-pointer"
+            title="Trigger a real-time incident test on any website"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>+ Simulate Incident</span>
+          </button>
         </div>
       </div>
 
@@ -221,6 +234,11 @@ export const IncidentsPage = () => {
           })
         )}
       </div>
+
+      <SimulateIncidentModal
+        isOpen={isSimulateModalOpen}
+        onClose={() => setIsSimulateModalOpen(false)}
+      />
     </div>
   );
 };

@@ -7,6 +7,7 @@ import { AnomalyErrorChart } from '../../components/charts/AnomalyErrorChart';
 import { LatencyPercentilesChart } from '../../components/charts/LatencyPercentilesChart';
 import { RequestVolumeChart } from '../../components/charts/RequestVolumeChart';
 import { TimeRangeSelector } from '../../components/common/TimeRangeSelector';
+import { SubEndpointBreakdownTable } from '../../components/api/SubEndpointBreakdownTable';
 import { formatLatency, formatUptime, formatNumber } from '../../utils/formatters';
 import {
   ArrowLeft,
@@ -259,77 +260,7 @@ export const ApiDetailsPage = () => {
       </div>
 
       {/* Endpoint Performance Breakdown Table */}
-      <div className="rounded-xl border border-[#1E2633] bg-[#0F141D] overflow-hidden">
-        <div className="p-5 border-b border-[#1E2633] flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-100">Sub-Endpoint Performance Breakdown</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Route-level distribution for {api?.name || 'API'}</p>
-          </div>
-          <span className="text-xs font-mono text-slate-400">
-            {(api?.endpointsTable?.length || (api ? 1 : 0))} routes profiled
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#0B0F17] text-slate-400 uppercase tracking-wider border-b border-[#1E2633] font-mono">
-              <tr>
-                <th className="py-3 px-5">Sub-Endpoint</th>
-                <th className="py-3 px-5">Requests</th>
-                <th className="py-3 px-5">Error Rate</th>
-                <th className="py-3 px-5">P95 Latency</th>
-                <th className="py-3 px-5 text-right">Status Code</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1E2633] font-mono">
-              {(api?.endpointsTable || (api ? [
-                {
-                  endpoint: `${api.method || 'GET'} ${api.endpoint || '/'}`,
-                  requests: api.requestsCount || 0,
-                  errorRate: `${api.errorRate || 0}%`,
-                  p95: `${api.p95Latency || 0}ms`,
-                  status: (api.errorRate || 0) > 10 ? 500 : 200
-                }
-              ] : [])).map((row, idx) => {
-                const isHighError = parseFloat(row.errorRate) > 10;
-                return (
-                  <tr key={idx} className="hover:bg-[#141B26] transition-colors">
-                    <td className="py-3 px-5 font-semibold text-slate-200">
-                      {row.endpoint}
-                    </td>
-                    <td className="py-3 px-5 text-slate-300">
-                      {formatNumber(row.requests)}
-                    </td>
-                    <td className="py-3 px-5">
-                      <span
-                        className={`px-2 py-0.5 rounded font-bold ${
-                          isHighError ? 'bg-red-500/15 text-red-400 border border-red-500/30' : 'text-slate-300'
-                        }`}
-                      >
-                        {row.errorRate}
-                      </span>
-                    </td>
-                    <td className="py-3 px-5 font-bold text-slate-200">
-                      {row.p95}
-                    </td>
-                    <td className="py-3 px-5 text-right">
-                      <span
-                        className={`px-2 py-0.5 rounded border text-[11px] font-bold ${
-                          row.status >= 500
-                            ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <SubEndpointBreakdownTable api={api} timeRange={timeRange} />
     </div>
   );
 };

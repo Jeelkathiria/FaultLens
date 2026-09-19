@@ -214,6 +214,22 @@ class ApiHealthCheckerService {
       }).catch((e) => logger.warn(`Failed to auto-log health check error: ${e.message}`));
     }
 
+    // 3b. If failed/critical status, automatically trigger/update an active Incident
+    if (!isSuccess && (statusCode >= 500 || status === 'CRITICAL' || statusCode === 0)) {
+      try {
+        const incidentService = require('./incident.service');
+        incidentService.triggerIncidentForApiFailure(api, {
+          targetUrl,
+          statusCode,
+          responseTime,
+          errorMessage,
+          status
+        }).catch((err) => {
+          logger.warn(`Failed to auto-raise incident on health check failure: ${err.message}`);
+        });
+      } catch (_) {}
+    }
+
     // 4. Invalidate related metric caches
     cache.del(`api:${api.id}:metrics:1h`).catch(() => {});
     cache.del(`api:${api.id}:metrics:24h`).catch(() => {});

@@ -243,6 +243,29 @@ describe('Multi-Tenant Isolation & 404 Enumeration Defense Tests', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.data.name).toBe('Payments API');
     });
+
+    it('Developer 1 requests Developer 2 API sub-endpoints -> returns 404 Not Found', async () => {
+      const res = await request(app)
+        .get('/api/v1/apis/api-tasks/sub-endpoints')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('Developer 1 requests their own API sub-endpoints -> returns 200 OK with sub-endpoints array', async () => {
+      const res = await request(app)
+        .get('/api/v1/apis/api-payments/sub-endpoints')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
+      expect(res.body.data[0]).toHaveProperty('endpoint');
+      expect(res.body.data[0]).toHaveProperty('requests');
+      expect(res.body.data[0]).toHaveProperty('errorRate');
+      expect(res.body.data[0]).toHaveProperty('p95');
+    });
   });
 
   describe('3. Telemetry Ingestion Ownership Chain (x-api-key -> user -> website -> api)', () => {
