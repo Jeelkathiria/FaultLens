@@ -1,5 +1,7 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 const app = require('../src/app');
+const env = require('../src/config/env');
 const prisma = require('../src/config/database');
 const bcrypt = require('bcryptjs');
 
@@ -32,6 +34,35 @@ jest.mock('../src/config/database', () => {
         return Promise.resolve(user);
       }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 })
+    },
+    website: {
+      create: jest.fn().mockImplementation(({ data }) => {
+        return Promise.resolve({
+          id: 'w-new',
+          name: data.name,
+          url: data.url,
+          userId: data.userId,
+          status: 'healthy',
+          environment: data.environment || 'PRODUCTION',
+          createdAt: new Date()
+        });
+      }),
+      findUnique: jest.fn().mockResolvedValue(null)
+    },
+    api: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([])
+    },
+    incident: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([])
+    },
+    requestMetric: {
+      count: jest.fn().mockResolvedValue(0)
+    },
+    websiteCheck: {
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0)
     },
     $queryRaw: jest.fn().mockResolvedValue([{ 1: 1 }]),
     $disconnect: jest.fn().mockResolvedValue()
@@ -138,5 +169,49 @@ describe('Authentication & Authorization Integration Tests', () => {
     expect(res.body.data.token).toBeDefined();
     expect(res.body.data.user.role).toBe('DEVELOPER');
     expect(res.body.data.user.email).toBe('google_dev@faultlens.dev');
+  });
+
+  it('creates a website when authenticated with Bearer token', async () => {
+    const res = await request(app)
+      .post('/api/v1/websites')
+      .set('Authorization', `Bearer ${devToken}`)
+      .send({
+        name: 'My New Website',
+        url: 'https://mynewsite.dev',
+        environment: 'PRODUCTION'
+      });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.name).toBe('My New Website');
+  });
+
+  it('rejects website creation when unauthenticated (returns 401)', async () => {
+    const res = await request(app)
+      .post('/api/v1/websites')
+      .send({
+        name: 'Unauth Site',
+        url: 'https://unauth.dev'
+      });
+
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('rejects website creation with expired token (returns 401)', async () => {
+    const expiredToken = jwt.sign(
+      { userId: 'usr-dev', role: 'DEVELOPER' },
+      env.JWT_SECRET,
+      { expiresIn: '-1s' }
+    );
+
+    const res = await request(app)
+      .post('/api/v1/websites')
+      .set('Authorization', `Bearer ${expiredToken}`)
+      .send({
+        name: 'Expired Token Site',
+        url: 'https://expired.dev'
+      });
+
+    expect(res.statusCode).toBe(401);
   });
 });

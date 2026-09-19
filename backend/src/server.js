@@ -3,16 +3,18 @@ const app = require('./app');
 const env = require('./config/env');
 const logger = require('./utils/logger');
 const prisma = require('./config/database');
-const { initSocket } = require('./websocket/socket');
+const { initSocket, startInfraMetricsBroadcaster } = require('./websocket/socket');
 const { initMetricAggregationJob } = require('./jobs/metricAggregation.job');
 const { initAnomalyDetectionJob } = require('./jobs/anomalyDetection.job');
 const { initCleanupJob } = require('./jobs/cleanup.job');
 const { initApiHealthCheckJob } = require('./jobs/apiHealthCheck.job');
+const { initWebsiteHealthCheckJob } = require('./jobs/websiteHealthCheck.job');
 
 const httpServer = http.createServer(app);
 
 // Initialize real-time WebSocket server
 initSocket(httpServer);
+startInfraMetricsBroadcaster();
 
 // Start HTTP & WebSocket server
 const server = httpServer.listen(env.PORT, () => {
@@ -28,6 +30,7 @@ const server = httpServer.listen(env.PORT, () => {
   initAnomalyDetectionJob();
   initCleanupJob();
   initApiHealthCheckJob();
+  initWebsiteHealthCheckJob();
 });
 
 // Graceful shutdown handling

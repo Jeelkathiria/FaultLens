@@ -230,7 +230,7 @@ export const SubEndpointBreakdownTable = ({ api, timeRange = '24H' }) => {
             <span>Avg P95 Latency</span>
           </div>
           <div className="text-sm font-bold text-emerald-400 mt-1">
-            {summary.avgP95} ms
+            {summary.avgP95 > 0 ? `${summary.avgP95} ms` : '—'}
           </div>
         </div>
 
@@ -240,7 +240,7 @@ export const SubEndpointBreakdownTable = ({ api, timeRange = '24H' }) => {
             <span>Highest Error Route</span>
           </div>
           <div className="text-sm font-bold text-amber-400 mt-1 truncate" title={summary.maxErrorRoute?.endpoint || 'None'}>
-            {summary.maxErrorRoute ? (
+            {summary.maxErrorRoute && summary.totalRequests > 0 ? (
               <span className="flex items-center gap-1.5">
                 <span className="text-red-400">{summary.maxErrorRoute.errorRate}</span>
                 <span className="text-[10px] text-slate-400 font-normal truncate">
@@ -259,7 +259,7 @@ export const SubEndpointBreakdownTable = ({ api, timeRange = '24H' }) => {
             <span>Slowest Tail</span>
           </div>
           <div className="text-sm font-bold text-purple-400 mt-1 truncate" title={summary.slowestRoute?.endpoint || 'None'}>
-            {summary.slowestRoute ? (
+            {summary.slowestRoute && summary.totalRequests > 0 ? (
               <span className="flex items-center gap-1.5">
                 <span>{summary.slowestRoute.p95}</span>
                 <span className="text-[10px] text-slate-400 font-normal truncate">
@@ -267,7 +267,7 @@ export const SubEndpointBreakdownTable = ({ api, timeRange = '24H' }) => {
                 </span>
               </span>
             ) : (
-              'N/A'
+              '—'
             )}
           </div>
         </div>
@@ -483,16 +483,22 @@ export const SubEndpointBreakdownTable = ({ api, timeRange = '24H' }) => {
               <tr>
                 <td colSpan={5} className="py-10 px-5 text-center">
                   <div className="max-w-xs mx-auto text-slate-400 space-y-2">
-                    <p className="text-xs">No sub-endpoints match your current filter.</p>
-                    <button
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSelectedMethod('ALL');
-                      }}
-                      className="px-3 py-1 rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs transition-colors"
-                    >
-                      Reset filters
-                    </button>
+                    <p className="text-xs">
+                      {data.length === 0
+                        ? 'No route telemetry recorded for this API yet.'
+                        : 'No sub-endpoints match your current filter.'}
+                    </p>
+                    {data.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedMethod('ALL');
+                        }}
+                        className="px-3 py-1 rounded-md bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 border border-indigo-500/30 text-xs transition-colors"
+                      >
+                        Reset filters
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

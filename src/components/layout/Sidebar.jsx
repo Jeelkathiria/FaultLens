@@ -17,6 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useFaultLens } from '../../context/FaultLensContext';
+import { FaultLensLogo } from '../common/FaultLensLogo';
 
 export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const { role, switchRole, incidents, currentUser, logout } = useFaultLens();
@@ -62,7 +63,8 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     }
   ];
 
-  const navSections = role === 'admin' ? adminNavItems : devNavItems;
+  const isActualAdmin = (currentUser?.role || '').toUpperCase() === 'ADMIN' && role === 'admin';
+  const navSections = isActualAdmin ? adminNavItems : devNavItems;
 
   return (
     <aside
@@ -73,18 +75,21 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       {/* Brand Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-[#1E2633]">
         <div
-          onClick={() => navigate(role === 'admin' ? '/admin' : '/dashboard')}
-          className="flex items-center gap-2.5 cursor-pointer overflow-hidden"
+          onClick={() => navigate(isActualAdmin ? '/admin' : '/dashboard')}
+          className="flex items-center gap-2.5 cursor-pointer overflow-hidden group"
+          title="FaultLens"
         >
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-600/30">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
+          <FaultLensLogo size={32} showText={false} className="shrink-0" />
           {!isCollapsed && (
             <div className="flex flex-col">
               <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
                 FaultLens
-                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {role === 'admin' ? 'ADMIN' : 'PRO'}
+                <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.2 rounded border ${
+                  isActualAdmin
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                    : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                }`}>
+                  {isActualAdmin ? 'ADMIN' : 'PRO'}
                 </span>
               </span>
               <span className="text-[10px] text-slate-400 -mt-0.5">Observability Suite</span>
@@ -209,7 +214,7 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
                 {currentUser?.name || 'Developer'}
               </div>
               <div className="text-[11px] text-slate-400 capitalize flex items-center justify-between gap-1">
-                <span>{role === 'admin' ? 'Admin' : 'Developer'}</span>
+                <span>{isActualAdmin ? 'Admin' : 'Developer'}</span>
                 <button
                   type="button"
                   onClick={async () => {

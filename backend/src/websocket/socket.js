@@ -119,6 +119,10 @@ function initSocket(httpServer) {
     });
   });
 
+  if (!env.isTest) {
+    startInfraMetricsBroadcaster();
+  }
+
   return io;
 }
 
@@ -221,6 +225,123 @@ function emitApiHealthUpdated(api, healthData) {
   io.to('admin:platform').emit('API_HEALTH_UPDATED', payload);
 }
 
+function emitWebsiteHealthUpdated(website, healthData) {
+  if (!io) return;
+  const websiteId = website.id || website._id;
+  const ownerUserId = website.userId;
+
+  const payload = {
+    websiteId,
+    healthStatus: healthData.healthStatus,
+    status: healthData.status,
+    statusCode: healthData.statusCode,
+    responseTime: healthData.responseTime,
+    checkedAt: healthData.checkedAt,
+    sslValid: healthData.sslValid,
+    error: healthData.error
+  };
+
+  io.to(`website:${websiteId}`).emit('WEBSITE_HEALTH_UPDATED', payload);
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('WEBSITE_HEALTH_UPDATED', payload);
+  }
+  io.to('admin:platform').emit('WEBSITE_HEALTH_UPDATED', payload);
+}
+
+function emitWebsiteCheckFailed(website, errorData) {
+  if (!io) return;
+  const websiteId = website.id || website._id;
+  const ownerUserId = website.userId;
+
+  const payload = {
+    websiteId,
+    name: website.name,
+    errorType: errorData.errorType,
+    errorMessage: errorData.errorMessage,
+    statusCode: errorData.statusCode,
+    failedAt: errorData.timestamp || new Date().toISOString()
+  };
+
+  io.to(`website:${websiteId}`).emit('WEBSITE_CHECK_FAILED', payload);
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('WEBSITE_CHECK_FAILED', payload);
+  }
+  io.to('admin:platform').emit('WEBSITE_CHECK_FAILED', payload);
+}
+
+function emitWebsiteCheckRecovered(website, recoveryData) {
+  if (!io) return;
+  const websiteId = website.id || website._id;
+  const ownerUserId = website.userId;
+
+  const payload = {
+    websiteId,
+    name: website.name,
+    healthStatus: 'UP',
+    status: 'healthy',
+    responseTime: recoveryData.responseTime,
+    recoveredAt: recoveryData.timestamp || new Date().toISOString()
+  };
+
+  io.to(`website:${websiteId}`).emit('WEBSITE_CHECK_RECOVERED', payload);
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('WEBSITE_CHECK_RECOVERED', payload);
+  }
+  io.to('admin:platform').emit('WEBSITE_CHECK_RECOVERED', payload);
+}
+
+function emitWebsiteIncidentCreated(incident) {
+  if (!io) return;
+  const websiteId = incident.websiteId;
+  const ownerUserId = incident.website?.userId;
+
+  io.to(`website:${websiteId}`).emit('WEBSITE_INCIDENT_CREATED', incident);
+  io.to(`website:${websiteId}`).emit('INCIDENT_CREATED', incident);
+  if (ownerUserId) {
+    io.to(`user:${ownerUserId}`).emit('WEBSITE_INCIDENT_CREATED', incident);
+    io.to(`user:${ownerUserId}`).emit('INCIDENT_CREATED', incident);
+  }
+  io.to('admin:platform').emit('WEBSITE_INCIDENT_CREATED', incident);
+  io.to('admin:platform').emit('INCIDENT_CREATED', incident);
+}
+
+let infraInterval = null;
+
+/**
+ * Emit real-time infrastructure pipeline event exclusively to admin:platform room
+ * @param {Object} eventData
+ */
+function emitInfraEvent(eventData) {
+  if (!io || !eventData) return;
+  try {
+    const infrastructureService = require('../services/infrastructure.service');
+    const normalized = infrastructureService.addEvent(eventData);
+    io.to('admin:platform').emit('INFRA_EVENT', normalized);
+  } catch (err) {
+    logger.debug(`Error emitting infra event: ${err.message}`);
+  }
+}
+
+/**
+ * Start periodic live infrastructure metrics broadcast when admin is connected
+ */
+function startInfraMetricsBroadcaster() {
+  if (infraInterval) clearInterval(infraInterval);
+  infraInterval = setInterval(async () => {
+    if (!io) return;
+    try {
+      const adminRoom = io.sockets.adapter.rooms?.get('admin:platform');
+      if (adminRoom && adminRoom.size > 0) {
+        const infrastructureService = require('../services/infrastructure.service');
+        const snapshot = await infrastructureService.getInfrastructureSnapshot();
+        io.to('admin:platform').emit('INFRA_METRICS_UPDATED', snapshot);
+      }
+    } catch (err) {
+      logger.debug(`Error in infra broadcaster: ${err.message}`);
+    }
+  }, 4000);
+}
+
 module.exports = {
   initSocket,
   getIO,
@@ -230,5 +351,11 @@ module.exports = {
   emitIncidentUpdated,
   emitIncidentResolved,
   emitDeploymentCreated,
-  emitApiHealthUpdated
+  emitApiHealthUpdated,
+  emitWebsiteHealthUpdated,
+  emitWebsiteCheckFailed,
+  emitWebsiteCheckRecovered,
+  emitWebsiteIncidentCreated,
+  emitInfraEvent,
+  startInfraMetricsBroadcaster
 };

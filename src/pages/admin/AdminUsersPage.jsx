@@ -45,7 +45,7 @@ export const AdminUsersPage = () => {
         </div>
 
         <div className="inline-flex items-center p-0.5 rounded-lg bg-[#080B12] border border-[#1E2633]">
-          {['ALL', 'Developer', 'Admin', 'DevOps', 'Viewer'].map((role) => (
+          {['ALL', 'Developer', 'Admin'].map((role) => (
             <button
               key={role}
               onClick={() => setRoleFilter(role)}

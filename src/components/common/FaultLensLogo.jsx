@@ -6,12 +6,17 @@ export const FaultLensLogo = ({
   className = '',
   iconClassName = '',
   textClassName = '',
+  light = false,
 }) => {
   return (
     <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
       {/* Sleek, Compact Stylized Lens & Pulse Icon */}
       <div
-        className={`relative flex items-center justify-center rounded-lg bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 shadow-sm shadow-black/50 shrink-0 group hover:border-[#00C2CB]/40 transition-colors ${iconClassName}`}
+        className={`relative flex items-center justify-center rounded-lg ${
+          light
+            ? 'bg-slate-900/[0.04] border border-slate-200 shadow-2xs'
+            : 'bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 shadow-sm shadow-black/50'
+        } shrink-0 group hover:border-[#00C2CB]/40 transition-colors ${iconClassName}`}
         style={{ width: size, height: size }}
       >
         <svg
@@ -68,7 +73,11 @@ export const FaultLensLogo = ({
       {/* Stylized "FaultLens" Wordmark */}
       {showText && (
         <div className="flex items-center tracking-tight">
-          <span className={`font-extrabold text-white tracking-tight ${textClassName || 'text-lg'}`}>
+          <span
+            className={`font-extrabold tracking-tight ${
+              light ? 'text-slate-900' : 'text-white'
+            } ${textClassName || 'text-lg'}`}
+          >
             Fault
           </span>
           <span

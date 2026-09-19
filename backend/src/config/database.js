@@ -169,6 +169,10 @@ async function resolveIncludes(item, include, modelName) {
       const u = await models.User.findById(item.userId);
       item.user = formatDoc(u);
     }
+    if (include.checks) {
+      const checks = await models.WebsiteCheck.find({ websiteId: item.id }).sort({ timestamp: -1 }).limit(include.checks.take || 20);
+      item.checks = checks.map(formatDoc);
+    }
   }
 
   // Api relations
@@ -401,6 +405,7 @@ const db = {
   // Direct access to native Mongoose models
   User: models.User,
   Website: models.Website,
+  WebsiteCheck: models.WebsiteCheck,
   Api: models.Api,
   ApiKey: models.ApiKey,
   RequestMetric: models.RequestMetric,
@@ -414,6 +419,7 @@ const db = {
   // Clean data access adapters
   user: createAdapter(models.User, 'User'),
   website: createAdapter(models.Website, 'Website'),
+  websiteCheck: createAdapter(models.WebsiteCheck, 'WebsiteCheck'),
   api: createAdapter(models.Api, 'Api'),
   apiKey: createAdapter(models.ApiKey, 'ApiKey'),
   requestMetric: createAdapter(models.RequestMetric, 'RequestMetric'),

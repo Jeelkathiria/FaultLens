@@ -40,6 +40,16 @@ const mockApis = [
   { id: 'api-workspaces', websiteId: 'w-taskflow', name: 'Team Workspace API', endpoint: '/api/v1/workspaces', method: 'GET', status: 'healthy' }
 ];
 
+const mockIncidents = [
+  { id: 'inc-dev1', websiteId: 'w-shopsphere', apiId: 'api-payments', title: 'Dev1 Incident', severity: 'critical', status: 'DETECTED', detectedAt: new Date() },
+  { id: 'inc-dev2', websiteId: 'w-taskflow', apiId: 'api-tasks', title: 'Dev2 Incident', severity: 'critical', status: 'DETECTED', detectedAt: new Date() }
+];
+
+const mockDeployments = [
+  { id: 'dep-dev1', websiteId: 'w-shopsphere', apiId: 'api-payments', version: 'v1.0.0', commitHash: 'abcdef123', deployedAt: new Date() },
+  { id: 'dep-dev2', websiteId: 'w-taskflow', apiId: 'api-tasks', version: 'v2.0.0', commitHash: '123456789', deployedAt: new Date() }
+];
+
 // Mock database interactions
 jest.mock('../src/config/database', () => {
   return {
@@ -140,11 +150,58 @@ jest.mock('../src/config/database', () => {
     },
     incident: {
       findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
+      findMany: jest.fn().mockImplementation(({ where }) => {
+        let list = [...mockIncidents];
+        if (where && where.websiteId && where.websiteId.in) {
+          list = list.filter((i) => where.websiteId.in.includes(i.websiteId));
+        }
+        return Promise.resolve(list);
+      }),
+      findUnique: jest.fn().mockImplementation(({ where }) => {
+        const inc = mockIncidents.find((x) => x.id === where.id);
+        if (inc) {
+          const api = mockApis.find((a) => a.id === inc.apiId);
+          const website = mockWebsites.find((w) => w.id === inc.websiteId);
+          return Promise.resolve({
+            ...inc,
+            api: api ? { ...api, website } : null,
+            website,
+            events: []
+          });
+        }
+        return Promise.resolve(null);
+      }),
       count: jest.fn().mockResolvedValue(0)
+    },
+    deployment: {
+      findUnique: jest.fn().mockImplementation(({ where }) => {
+        const dep = mockDeployments.find((x) => x.id === where.id);
+        if (dep) {
+          const api = mockApis.find((a) => a.id === dep.apiId);
+          const website = mockWebsites.find((w) => w.id === dep.websiteId);
+          return Promise.resolve({
+            ...dep,
+            api: api ? { ...api, website } : null,
+            website
+          });
+        }
+        return Promise.resolve(null);
+      }),
+      findMany: jest.fn().mockImplementation(({ where }) => {
+        let list = [...mockDeployments];
+        if (where && where.websiteId && where.websiteId.in) {
+          list = list.filter((d) => where.websiteId.in.includes(d.websiteId));
+        }
+        return Promise.resolve(list);
+      }),
+      update: jest.fn().mockResolvedValue({})
     },
     log: {
       create: jest.fn().mockResolvedValue({ id: 'log-123' }),
+      findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0)
+    },
+    websiteCheck: {
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0)
     },
@@ -327,6 +384,78 @@ describe('Multi-Tenant Isolation & 404 Enumeration Defense Tests', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.length).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  describe('5. Sub-Resource Multi-Tenant Isolation (Incidents, Deployments, Logs, Metrics)', () => {
+    it('Developer 1 accessing Developer 2 incident -> returns 404 Not Found', async () => {
+      const res = await request(app)
+        .get('/api/v1/incidents/inc-dev2')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('Developer 1 accessing Developer 1 incident -> returns 200 OK', async () => {
+      const res = await request(app)
+        .get('/api/v1/incidents/inc-dev1')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('Admin accessing Developer 2 incident -> returns 200 OK', async () => {
+      const res = await request(app)
+        .get('/api/v1/incidents/inc-dev2')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('Developer 1 accessing Developer 2 deployment -> returns 404 Not Found', async () => {
+      const res = await request(app)
+        .get('/api/v1/deployments/dep-dev2')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('Developer 1 accessing Developer 1 deployment -> returns 200 OK', async () => {
+      const res = await request(app)
+        .get('/api/v1/deployments/dep-dev1')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('Developer 1 querying logs for Developer 2 website -> returns 404 Not Found', async () => {
+      const res = await request(app)
+        .get('/api/v1/logs?websiteId=w-taskflow')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('Developer 1 querying metrics for Developer 2 API -> returns 404 Not Found', async () => {
+      const res = await request(app)
+        .get('/api/v1/metrics/api-tasks')
+        .set('Authorization', `Bearer ${dev1Token}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it('Unauthenticated requests to protected sub-resource routes -> returns 401 Unauthorized', async () => {
+      const resInc = await request(app).get('/api/v1/incidents');
+      expect(resInc.statusCode).toBe(401);
+
+      const resDep = await request(app).get('/api/v1/deployments');
+      expect(resDep.statusCode).toBe(401);
+
+      const resLog = await request(app).get('/api/v1/logs');
+      expect(resLog.statusCode).toBe(401);
     });
   });
 });

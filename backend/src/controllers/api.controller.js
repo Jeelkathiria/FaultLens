@@ -288,24 +288,18 @@ class ApiController {
     const isCritical = api.status === 'critical' || api.status === 'CRITICAL';
     const isDegraded = api.status === 'degraded' || api.status === 'DEGRADED';
 
-    const requestsCount = summary.totalRequests || totalRequests || (isUnknown ? 0 : 1200);
+    const requestsCount = summary.totalRequests || totalRequests || 0;
     const errorRate = summary.overallErrorRate !== undefined
       ? summary.overallErrorRate
-      : isCritical
-      ? 17.8
-      : isDegraded
-      ? 4.2
-      : isUnknown
-      ? 0.0
-      : 0.1;
+      : 0.0;
 
-    const p95Latency = summary.p95Latency || api.lastResponseTime || (isCritical ? 2800 : isDegraded ? 640 : isUnknown ? 0 : 120);
-    const p50Latency = summary.p50Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 0.8) : 0) || (isCritical ? 620 : isDegraded ? 280 : isUnknown ? 0 : 45);
-    const p99Latency = summary.p99Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 1.5) : 0) || (isCritical ? 4200 : isDegraded ? 980 : isUnknown ? 0 : 180);
+    const p95Latency = summary.p95Latency || api.lastResponseTime || null;
+    const p50Latency = summary.p50Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 0.8) : null);
+    const p99Latency = summary.p99Latency || (api.lastResponseTime ? Math.round(api.lastResponseTime * 1.5) : null);
 
     const intervalVal = Number(api.monitoringInterval) || 60;
 
-    let lastResponseStr = 'N/A';
+    let lastResponseStr = '—';
     if (api.lastStatusCode) {
       lastResponseStr = `${api.lastStatusCode} ${api.lastCheckSuccess ? 'OK' : 'ERR'}`;
     }
@@ -317,7 +311,7 @@ class ApiController {
       endpoint: api.endpoint,
       method: api.method,
       status: api.status,
-      uptime: isUnknown && totalRequests === 0 ? 100.0 : (uptime || 99.95),
+      uptime: totalRequests > 0 ? uptime : null,
       p95Latency,
       p50Latency,
       p99Latency,
@@ -467,106 +461,33 @@ class ApiController {
         }
       }
 
-      // 2. If fewer than 2 distinct routes exist, synthesize realistic sub-endpoints for this API
-      if (rows.length < 2) {
-        let baseEndpoint = (api.endpoint || '').replace(/\/+$/, '');
+      if (rows.length === 0 && api.endpoint) {
+        let ep = api.endpoint;
         try {
-          if (baseEndpoint.startsWith('http://') || baseEndpoint.startsWith('https://')) {
-            const parsed = new URL(baseEndpoint);
-            baseEndpoint = parsed.pathname || '';
+          if (ep.startsWith('http://') || ep.startsWith('https://')) {
+            const parsed = new URL(ep);
+            ep = parsed.pathname + (parsed.search || '');
           }
         } catch (_) {}
-        if (!baseEndpoint.startsWith('/')) baseEndpoint = '/' + baseEndpoint;
-
-        const nameLower = (api.name || '').toLowerCase();
-        const epLower = baseEndpoint.toLowerCase();
-
-        let subTemplates = [];
-        if (nameLower.includes('payment') || epLower.includes('payment')) {
-          subTemplates = [
-            { path: '/charge', method: 'POST', weight: 0.45, errMult: 1.2, latMult: 1.1 },
-            { path: '/verify', method: 'GET', weight: 0.25, errMult: 0.6, latMult: 0.8 },
-            { path: '/3ds-callback', method: 'POST', weight: 0.15, errMult: 2.1, latMult: 1.8 },
-            { path: '/refund', method: 'POST', weight: 0.10, errMult: 0.2, latMult: 0.9 },
-            { path: '/health', method: 'GET', weight: 0.05, errMult: 0.0, latMult: 0.3 }
-          ];
-        } else if (nameLower.includes('task') || epLower.includes('task')) {
-          subTemplates = [
-            { path: '/list', method: 'GET', weight: 0.40, errMult: 0.1, latMult: 0.7 },
-            { path: '/create', method: 'POST', weight: 0.25, errMult: 0.2, latMult: 1.0 },
-            { path: '/assign', method: 'PATCH', weight: 0.20, errMult: 0.1, latMult: 0.9 },
-            { path: '/comments', method: 'GET', weight: 0.10, errMult: 0.0, latMult: 0.6 },
-            { path: '/health', method: 'GET', weight: 0.05, errMult: 0.0, latMult: 0.2 }
-          ];
-        } else if (nameLower.includes('order') || epLower.includes('order') || nameLower.includes('inventory')) {
-          subTemplates = [
-            { path: '/items', method: 'GET', weight: 0.40, errMult: 0.3, latMult: 0.8 },
-            { path: '/checkout', method: 'POST', weight: 0.30, errMult: 1.4, latMult: 1.2 },
-            { path: '/status', method: 'GET', weight: 0.20, errMult: 0.1, latMult: 0.6 },
-            { path: '/health', method: 'GET', weight: 0.10, errMult: 0.0, latMult: 0.3 }
-          ];
-        } else if (nameLower.includes('httpbin') || epLower.includes('httpbin') || (api.websiteId && (api.name || '').includes('Bin'))) {
-          subTemplates = [
-            { path: '/get', method: 'GET', weight: 0.35, errMult: 0.0, latMult: 0.7 },
-            { path: '/post', method: 'POST', weight: 0.25, errMult: 0.1, latMult: 0.9 },
-            { path: '/status/200', method: 'GET', weight: 0.20, errMult: 0.0, latMult: 0.6 },
-            { path: '/status/500', method: 'GET', weight: 0.10, errMult: 10.0, latMult: 1.4 },
-            { path: '/headers', method: 'GET', weight: 0.10, errMult: 0.0, latMult: 0.5 }
-          ];
-        } else {
-          subTemplates = [
-            { path: '', method: api.method || 'GET', weight: 0.50, errMult: 1.0, latMult: 1.0 },
-            { path: '/details', method: 'GET', weight: 0.25, errMult: 0.4, latMult: 0.8 },
-            { path: '/query', method: 'POST', weight: 0.15, errMult: 1.2, latMult: 1.3 },
-            { path: '/health', method: 'GET', weight: 0.10, errMult: 0.0, latMult: 0.3 }
-          ];
-        }
-
-        const totalReqs = Math.max(requestsCount || 0, 100);
-        const timeMult = tr === '1h' ? 0.08 : tr === '7d' ? 6.5 : tr === '30d' ? 26.0 : 1.0;
-
-        for (const t of subTemplates) {
-          const epPath = t.path ? (baseEndpoint.endsWith(t.path) ? baseEndpoint : `${baseEndpoint}${t.path}`) : (baseEndpoint || '/');
-          const fullRoute = `${t.method} ${epPath}`;
-          if (seenRoutes.has(fullRoute)) continue;
-          seenRoutes.add(fullRoute);
-
-          const routeReqs = Math.max(1, Math.round(totalReqs * t.weight * timeMult));
-          const computedErr = Math.min(100, Math.max(0, +(errorRate * t.errMult).toFixed(1)));
-          const computedP95 = Math.max(15, Math.round(p95Latency * t.latMult));
-          const status = computedErr > 15 ? 500 : computedErr > 5 ? 400 : 200;
-
-          rows.push({
-            method: t.method,
-            path: epPath,
-            endpoint: fullRoute,
-            requests: routeReqs,
-            errorRate: `${computedErr}%`,
-            errorRateNum: computedErr,
-            p95: `${computedP95}ms`,
-            p95Num: computedP95,
-            status
-          });
-        }
+        if (!ep.startsWith('/')) ep = '/' + ep;
+        const method = (api.method || 'GET').toUpperCase();
+        rows.push({
+          method,
+          path: ep,
+          endpoint: `${method} ${ep}`,
+          requests: requestsCount || 0,
+          errorRate: `${errorRate || 0}%`,
+          errorRateNum: errorRate || 0,
+          p95: p95Latency ? `${p95Latency}ms` : '—',
+          p95Num: p95Latency || 0,
+          status: (errorRate || 0) > 10 ? 500 : 200
+        });
       }
 
       return rows;
     } catch (err) {
-      const baseEp = api.endpoint || '/';
-      const m = api.method || 'GET';
-      return [
-        {
-          method: m,
-          path: baseEp,
-          endpoint: `${m} ${baseEp}`,
-          requests: requestsCount || 0,
-          errorRate: `${errorRate || 0}%`,
-          errorRateNum: errorRate || 0,
-          p95: `${p95Latency || 0}ms`,
-          p95Num: p95Latency || 0,
-          status: (errorRate || 0) > 10 ? 500 : 200
-        }
-      ];
+      logger.error('Error computing sub-endpoints:', err);
+      return [];
     }
   }
 }

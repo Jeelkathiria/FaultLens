@@ -81,6 +81,41 @@ function initApiHealthCheckJob() {
         { connection: { url: env.REDIS_URL }, concurrency: 1 }
       );
 
+      const { emitInfraEvent } = require('../websocket/socket');
+      const infrastructureService = require('../services/infrastructure.service');
+
+      worker.on('active', (job) => {
+        emitInfraEvent({
+          stage: 'WORKER',
+          type: 'JOB_ACTIVE',
+          label: `Worker processing job #${job.id} (${job.name})`,
+          status: 'active',
+          details: { queue: QUEUE_NAME, jobId: job.id, jobName: job.name }
+        });
+      });
+
+      worker.on('completed', (job) => {
+        emitInfraEvent({
+          stage: 'PROCESSING',
+          type: 'JOB_COMPLETED',
+          label: `Completed job #${job.id} on ${QUEUE_NAME}`,
+          status: 'success',
+          details: { queue: QUEUE_NAME, jobId: job.id }
+        });
+      });
+
+      worker.on('failed', (job, err) => {
+        emitInfraEvent({
+          stage: 'PROCESSING',
+          type: 'JOB_FAILED',
+          label: `Job #${job?.id || 'err'} failed on ${QUEUE_NAME}: ${err?.message || 'Error'}`,
+          status: 'error',
+          details: { queue: QUEUE_NAME, jobId: job?.id, error: err?.message }
+        });
+      });
+
+      infrastructureService.registerQueue(QUEUE_NAME, queue, worker);
+
       // Repeat health check scan every 15 seconds
       queue
         .add(

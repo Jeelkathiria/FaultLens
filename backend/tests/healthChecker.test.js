@@ -11,6 +11,8 @@ describe('Live API Health Checker Service', () => {
   beforeAll((done) => {
     jest.spyOn(prisma.website, 'findUnique').mockResolvedValue({ id: 'test-web-1', url: 'http://127.0.0.1' });
     jest.spyOn(prisma.website, 'update').mockResolvedValue({});
+    jest.spyOn(prisma.requestMetric, 'findMany').mockResolvedValue([]);
+    jest.spyOn(prisma.requestMetric, 'create').mockResolvedValue({});
     jest.spyOn(prisma.log, 'create').mockResolvedValue({});
     jest.spyOn(uptimeService, 'calculateWebsiteHealth').mockResolvedValue('healthy');
     jest.spyOn(monitoringService, 'evaluateLiveTelemetry').mockResolvedValue();

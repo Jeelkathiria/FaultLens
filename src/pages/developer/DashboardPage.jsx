@@ -21,20 +21,26 @@ import {
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { websites, apis, incidents } = useFaultLens();
+  const { websites, apis, incidents, currentUser } = useFaultLens();
 
   const totalWebsites = websites.length;
+  const operationalWebsites = websites.filter((w) => w.health === 'healthy' || (!w.health && w.healthStatus === 'UP')).length;
+  const degradedWebsites = websites.filter((w) => w.health === 'degraded' || w.healthStatus === 'DEGRADED').length;
+  const criticalWebsites = websites.filter((w) => w.health === 'critical' || w.healthStatus === 'DOWN').length;
+
   const totalApis = apis.length;
-  const healthyApis = apis.filter(a => a.status === 'healthy').length;
-  const activeIncidents = incidents.filter(i => i.severity !== 'resolved' && i.status !== 'resolved');
+  const healthyApis = apis.filter((a) => (a.status || '').toLowerCase() === 'healthy').length;
+  const degradedApis = apis.filter((a) => (a.status || '').toLowerCase() === 'degraded').length;
+  const criticalApis = apis.filter((a) => (a.status || '').toLowerCase() === 'critical').length;
+  const activeIncidents = incidents.filter((i) => i.severity !== 'resolved' && i.status !== 'resolved');
 
   return (
     <div className="space-y-8">
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Good afternoon, Jeel</h1>
-          <p className="text-xs text-slate-400 mt-1">Here's what's happening across your applications.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Good afternoon, {currentUser?.name || 'Developer'}</h1>
+          <p className="text-xs text-slate-400 mt-1">Here's what's happening across your web applications and APIs.</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -48,29 +54,89 @@ export const DashboardPage = () => {
         </div>
       </div>
 
+      {/* Two-Dimension Monitoring Status Strip */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Websites Status Dimension */}
+        <div className="p-4 rounded-xl border border-[#1E2633] bg-[#0F141D] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 font-mono">Websites Dimension</div>
+              <div className="text-lg font-bold text-slate-100 mt-0.5">
+                {totalWebsites} {totalWebsites === 1 ? 'Website' : 'Websites'}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold">
+              {operationalWebsites} Operational
+            </span>
+            {degradedWebsites > 0 && (
+              <span className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-semibold">
+                {degradedWebsites} Degraded
+              </span>
+            )}
+            {criticalWebsites > 0 && (
+              <span className="px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 font-semibold">
+                {criticalWebsites} Critical
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* APIs Status Dimension */}
+        <div className="p-4 rounded-xl border border-[#1E2633] bg-[#0F141D] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 font-mono">APIs Dimension</div>
+              <div className="text-lg font-bold text-slate-100 mt-0.5">
+                {totalApis} {totalApis === 1 ? 'API' : 'APIs'}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold">
+              {healthyApis} Healthy
+            </span>
+            {degradedApis > 0 && (
+              <span className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-400 font-semibold">
+                {degradedApis} Degraded
+              </span>
+            )}
+            {criticalApis > 0 && (
+              <span className="px-2 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 font-semibold">
+                {criticalApis} Critical
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Top Statistics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Websites"
           value={totalWebsites}
-          subtitle="Monitored domains"
+          subtitle={`${operationalWebsites} operational / ${totalWebsites || 0} total`}
           icon={Globe}
-          trend="+1 this month"
-          trendDirection="up"
-          color="slate"
+          color={criticalWebsites > 0 ? 'red' : degradedWebsites > 0 ? 'amber' : 'slate'}
         />
         <StatCard
-          title="Total APIs"
+          title="APIs Tracked"
           value={totalApis}
-          subtitle="Endpoints tracked"
+          subtitle={`${healthyApis} healthy / ${totalApis || 0} total`}
           icon={Layers}
-          trend="100% telemetry coverage"
           color="indigo"
         />
         <StatCard
-          title="Healthy"
-          value={healthyApis}
-          subtitle={`${((healthyApis / (totalApis || 1)) * 100).toFixed(0)}% within SLA`}
+          title="HTTP Availability"
+          value={websites.length ? `${((operationalWebsites / websites.length) * 100).toFixed(1)}%` : '—'}
+          subtitle="Platform uptime SLA"
           icon={ShieldCheck}
           color="emerald"
         />
@@ -123,12 +189,12 @@ export const DashboardPage = () => {
         </div>
       )}
 
-      {/* Overall System Health Section */}
+      {/* Performance & Health Metrics Section */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-base font-semibold text-slate-100">Overall System Health</h2>
-            <p className="text-xs text-slate-400">Aggregated throughput, error rate and latency across all clusters</p>
+            <h2 className="text-base font-semibold text-slate-100">Performance & Health Metrics</h2>
+            <p className="text-xs text-slate-400">Aggregated throughput, error rate and latency across your monitored applications</p>
           </div>
         </div>
 

@@ -5,28 +5,28 @@ import { Activity, ShieldCheck, Clock, Sparkles } from 'lucide-react';
 export const TrustMetricsStrip = () => {
   const metrics = [
     {
-      value: '12',
-      label: 'APIs Monitored',
-      sublabel: 'Zero configuration setup',
+      value: 'Websites & APIs',
+      label: 'Dual-Engine Observability',
+      sublabel: 'Monitors websites with or without APIs',
       icon: Activity,
     },
     {
-      value: '99.98%',
-      label: 'Avg System Uptime',
-      sublabel: 'Continuous 30-day SLA',
+      value: '100% Authentic',
+      label: 'True Observability Rule',
+      sublabel: 'Zero synthetic demo or fallback values',
       icon: ShieldCheck,
     },
     {
-      value: 'P95 / P99',
-      label: 'Latency Percentiles',
-      sublabel: 'Sub-second precision',
-      icon: Clock,
+      value: '2.5σ Baseline',
+      label: 'Dynamic Anomaly Engine',
+      sublabel: 'Adaptive response time envelopes',
+      icon: Sparkles,
     },
     {
-      value: '24 / 7',
-      label: 'Anomaly Detection',
-      sublabel: '4σ statistical profiling',
-      icon: Sparkles,
+      value: '< 10ms Sync',
+      label: 'WebSocket Dispatch',
+      sublabel: 'Strict multi-tenant room isolation',
+      icon: Clock,
     }
   ];
 

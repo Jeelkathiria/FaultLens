@@ -1,6 +1,6 @@
 const db = require('../config/database');
 const logger = require('../utils/logger');
-const { NotFoundError, BadRequestError } = require('../utils/errors');
+const { NotFoundError, BadRequestError, UnauthorizedError } = require('../utils/errors');
 const correlationService = require('./correlation.service');
 const { emitIncidentCreated, emitIncidentUpdated, emitIncidentResolved } = require('../websocket/socket');
 
@@ -138,12 +138,24 @@ class IncidentService {
     try {
       const where = {};
 
-      if (!isAdmin && userId) {
-        where.api = { website: { userId } };
-      }
+      if (!isAdmin) {
+        if (!userId) {
+          throw new UnauthorizedError('User authentication required');
+        }
+        const userWebsites = await db.website.findMany({ where: { userId }, select: { id: true } });
+        const userWebsiteIds = userWebsites.map((w) => w.id);
 
-      if (filters.websiteId) {
-        where.api = { ...(where.api || {}), websiteId: filters.websiteId };
+        if (filters.websiteId) {
+          if (userWebsiteIds.includes(filters.websiteId)) {
+            where.websiteId = filters.websiteId;
+          } else {
+            where.websiteId = '__none__';
+          }
+        } else {
+          where.websiteId = { in: userWebsiteIds };
+        }
+      } else if (filters.websiteId) {
+        where.websiteId = filters.websiteId;
       }
 
       if (filters.apiId) {
@@ -210,8 +222,17 @@ class IncidentService {
       throw new NotFoundError('Incident not found');
     }
 
-    if (!isAdmin && userId && incident.api?.website?.userId !== userId) {
-      throw new NotFoundError('Incident not found');
+    if (!isAdmin && userId) {
+      let isOwner = false;
+      if (incident.api?.website?.userId === userId) {
+        isOwner = true;
+      } else if (incident.websiteId) {
+        const w = await db.website.findUnique({ where: { id: incident.websiteId } });
+        if (w && w.userId === userId) isOwner = true;
+      }
+      if (!isOwner) {
+        throw new NotFoundError('Incident not found');
+      }
     }
 
     return this.formatIncident(incident);
@@ -237,8 +258,17 @@ class IncidentService {
       throw new NotFoundError('Incident not found');
     }
 
-    if (user && user.role !== 'ADMIN' && incident.api?.website?.userId !== user.id) {
-      throw new NotFoundError('Incident not found');
+    if (user && user.role !== 'ADMIN') {
+      let isOwner = false;
+      if (incident.api?.website?.userId === user.id) {
+        isOwner = true;
+      } else if (incident.websiteId) {
+        const w = await db.website.findUnique({ where: { id: incident.websiteId } });
+        if (w && w.userId === user.id) isOwner = true;
+      }
+      if (!isOwner) {
+        throw new NotFoundError('Incident not found');
+      }
     }
 
     const updateData = { status: upperStatus };
@@ -272,22 +302,35 @@ class IncidentService {
 
     // If resolved, restore API and website status to healthy if no other active incidents
     if (upperStatus === 'RESOLVED') {
-      const otherActive = await db.incident.count({
-        where: {
-          apiId: incident.apiId,
-          status: { in: ['DETECTED', 'INVESTIGATING'] },
-          id: { not: id }
-        }
-      });
-
-      if (otherActive === 0) {
-        await db.api.update({
-          where: { id: incident.apiId },
-          data: { status: 'healthy' }
+      if (incident.apiId) {
+        const otherActive = await db.incident.count({
+          where: {
+            apiId: incident.apiId,
+            status: { in: ['DETECTED', 'INVESTIGATING'] },
+            id: { not: id }
+          }
         });
-        if (updated.api?.websiteId) {
+
+        if (otherActive === 0) {
+          await db.api.update({
+            where: { id: incident.apiId },
+            data: { status: 'healthy' }
+          });
+        }
+      }
+
+      const targetWebsiteId = incident.websiteId || updated.api?.websiteId;
+      if (targetWebsiteId) {
+        const otherWebActive = await db.incident.count({
+          where: {
+            websiteId: targetWebsiteId,
+            status: { in: ['DETECTED', 'INVESTIGATING'] },
+            id: { not: id }
+          }
+        });
+        if (otherWebActive === 0) {
           await db.website.update({
-            where: { id: updated.api.websiteId },
+            where: { id: targetWebsiteId },
             data: { status: 'healthy' }
           });
         }
@@ -530,6 +573,50 @@ class IncidentService {
     const websiteId = incident.websiteId || incident.api?.websiteId || incident.api?.website?.id || '';
     const websiteName = incident.website?.name || incident.api?.website?.name || (websiteId ? 'Website' : 'N/A');
 
+    // Compute authentic metrics from real records
+    let affectedCountStr = '0 requests';
+    let latencyCurrentStr = '—';
+    let latencyBeforeStr = '—';
+    let errorRateBeforeStr = '0%';
+    let errorRateCurrentStr = '0%';
+
+    if (incident.websiteId && !incident.apiId) {
+      let failedChecks = 0;
+      if (db.websiteCheck && typeof db.websiteCheck.count === 'function') {
+        failedChecks = await db.websiteCheck.count({
+          where: {
+            websiteId: incident.websiteId,
+            status: 'DOWN',
+            timestamp: { gte: detectedDate }
+          }
+        });
+      }
+      affectedCountStr = `${Math.max(1, failedChecks)} probe failures`;
+      latencyCurrentStr = incident.website?.lastResponseTime ? `${incident.website.lastResponseTime}ms` : 'Timeout';
+      errorRateBeforeStr = '0%';
+      errorRateCurrentStr = '100% outage';
+    } else if (incident.apiId) {
+      let failedRequests = 0;
+      if (db.requestMetric && typeof db.requestMetric.count === 'function') {
+        failedRequests = await db.requestMetric.count({
+          where: {
+            apiId: incident.apiId,
+            statusCode: { gte: 400 },
+            timestamp: { gte: detectedDate }
+          }
+        });
+      }
+      affectedCountStr = `${failedRequests} failed requests`;
+      if (incident.anomaly) {
+        errorRateBeforeStr = `${incident.anomaly.baselineValue}%`;
+        errorRateCurrentStr = `${incident.anomaly.detectedValue}%`;
+        if (incident.anomaly.metricType === 'latency') {
+          latencyBeforeStr = `${incident.anomaly.baselineValue}ms`;
+          latencyCurrentStr = `${incident.anomaly.detectedValue}ms`;
+        }
+      }
+    }
+
     return {
       id: incidentId,
       number: numStr,
@@ -546,12 +633,12 @@ class IncidentService {
       duration,
       timeAgo: `${diffMinutes} min ago`,
       metrics: {
-        errorRateBefore: incident.anomaly ? `${incident.anomaly.baselineValue}%` : '1.2%',
-        errorRateCurrent: incident.anomaly ? `${incident.anomaly.detectedValue}%` : '17.8%',
-        latencyBefore: '210ms',
-        latencyCurrent: '2.8s',
-        affectedRequests: '4,210 requests',
-        impactedUsers: '~1,450 sessions'
+        errorRateBefore: errorRateBeforeStr,
+        errorRateCurrent: errorRateCurrentStr,
+        latencyBefore: latencyBeforeStr,
+        latencyCurrent: latencyCurrentStr,
+        affectedRequests: affectedCountStr,
+        impactedUsers: '—'
       },
       correlatedDeployment,
       timeline,

@@ -1,5 +1,5 @@
 const prisma = require('../config/database');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, UnauthorizedError } = require('../utils/errors');
 const logger = require('../utils/logger');
 
 class LogController {
@@ -8,11 +8,35 @@ class LogController {
    */
   async getLogs(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { websiteId, apiId, level, statusCode, search, startDate, endDate, limit = 50 } = req.query;
 
       const where = {};
 
-      if (req.user?.role !== 'ADMIN') {
+      if (req.user.role !== 'ADMIN') {
+        const userWebsites = await prisma.website.findMany({
+          where: { userId: req.user.id },
+          select: { id: true }
+        });
+        const userWebsiteIds = userWebsites.map((w) => w.id);
+
+        if (websiteId && !userWebsiteIds.includes(websiteId)) {
+          throw new NotFoundError('Website not found');
+        }
+
+        if (apiId) {
+          const api = await prisma.api.findUnique({
+            where: { id: apiId },
+            select: { websiteId: true }
+          });
+          if (!api || !userWebsiteIds.includes(api.websiteId)) {
+            throw new NotFoundError('API not found');
+          }
+        }
+
         where.api = { website: { userId: req.user.id } };
       }
 
@@ -61,24 +85,21 @@ class LogController {
           id: l.id,
           timestamp: timeStr,
           fullTimestamp: d.toISOString().replace('T', ' ').replace('Z', ''),
-          method: meta.method || l.api?.method || 'POST',
-          endpoint: meta.endpoint || l.api?.endpoint || '/api',
-          statusCode: l.statusCode || (l.level === 'ERROR' ? 500 : 200),
-          latency: meta.responseTime || meta.latency || (l.level === 'ERROR' ? 1842 : 120),
-          severity: l.level.toLowerCase(),
-          websiteId: l.api?.websiteId,
-          websiteName: l.api?.website?.name,
-          apiId: l.apiId,
-          apiName: l.api?.name || 'API Service',
-          ip: meta.ip || '192.168.4.11',
-          userAgent: meta.userAgent || 'Mozilla/5.0 (Client/1.0)',
+          method: meta.method || l.api?.method || null,
+          endpoint: meta.endpoint || l.api?.endpoint || null,
+          statusCode: l.statusCode || null,
+          latency: meta.responseTime !== undefined ? meta.responseTime : meta.latency !== undefined ? meta.latency : null,
+          severity: l.level ? l.level.toLowerCase() : 'info',
+          websiteId: l.api?.websiteId || null,
+          websiteName: l.api?.website?.name || null,
+          apiId: l.apiId || null,
+          apiName: l.api?.name || null,
+          ip: meta.ip || null,
+          userAgent: meta.userAgent || null,
           message: l.message,
-          headers: meta.headers || {
-            'Content-Type': 'application/json',
-            'X-Request-ID': `req_${l.id.slice(0, 8)}`
-          },
+          headers: meta.headers || null,
           payload: meta.payload || meta.body || null,
-          stackTrace: meta.stackTrace || (l.level === 'ERROR' ? `Error: ${l.message}\n    at processRequest (src/server.js:142:19)` : null)
+          stackTrace: meta.stackTrace || null
         };
       });
 
@@ -96,6 +117,10 @@ class LogController {
    */
   async getLogById(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { id } = req.params;
 
       const log = await prisma.log.findUnique({
@@ -105,7 +130,7 @@ class LogController {
         }
       });
 
-      if (!log || (req.user?.role !== 'ADMIN' && log.api?.website?.userId !== req.user?.id)) {
+      if (!log || (req.user.role !== 'ADMIN' && log.api?.website?.userId !== req.user.id)) {
         throw new NotFoundError('Log entry not found');
       }
 

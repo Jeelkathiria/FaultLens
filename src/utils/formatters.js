@@ -1,6 +1,7 @@
 export const formatNumber = (num) => {
-  if (num === undefined || num === null || isNaN(Number(num))) return 'N/A';
+  if (num === undefined || num === null || isNaN(Number(num))) return '0';
   const val = Number(num);
+  if (val === 0) return '0';
   if (val >= 1000000) {
     return (val / 1000000).toFixed(1) + 'M';
   }
@@ -11,9 +12,8 @@ export const formatNumber = (num) => {
 };
 
 export const formatLatency = (ms) => {
-  if (ms === undefined || ms === null || isNaN(Number(ms))) return 'N/A';
+  if (ms === undefined || ms === null || isNaN(Number(ms)) || Number(ms) <= 0) return '—';
   const val = Number(ms);
-  if (val === 0) return '0ms';
   if (val >= 1000) {
     return `${(val / 1000).toFixed(1)}s`;
   }
@@ -21,8 +21,13 @@ export const formatLatency = (ms) => {
 };
 
 export const formatUptime = (rate) => {
-  if (rate === undefined || rate === null || isNaN(Number(rate))) return 'N/A';
+  if (rate === undefined || rate === null || isNaN(Number(rate))) return '—';
   return `${Number(rate).toFixed(2)}%`;
+};
+
+export const formatErrorRate = (rate) => {
+  if (rate === undefined || rate === null || isNaN(Number(rate)) || Number(rate) === 0) return '0%';
+  return `${Number(rate).toFixed(1)}%`;
 };
 
 export const getStatusConfig = (status) => {

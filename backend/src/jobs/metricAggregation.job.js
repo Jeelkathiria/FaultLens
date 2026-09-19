@@ -43,6 +43,41 @@ function initMetricAggregationJob() {
         { connection: { url: env.REDIS_URL } }
       );
 
+      const { emitInfraEvent } = require('../websocket/socket');
+      const infrastructureService = require('../services/infrastructure.service');
+
+      worker.on('active', (job) => {
+        emitInfraEvent({
+          stage: 'WORKER',
+          type: 'JOB_ACTIVE',
+          label: `Worker aggregating metrics (job #${job.id})`,
+          status: 'active',
+          details: { queue: QUEUE_NAME, jobId: job.id }
+        });
+      });
+
+      worker.on('completed', (job) => {
+        emitInfraEvent({
+          stage: 'PROCESSING',
+          type: 'JOB_COMPLETED',
+          label: `Metric rollups aggregated and persisted (${QUEUE_NAME})`,
+          status: 'success',
+          details: { queue: QUEUE_NAME, jobId: job.id }
+        });
+      });
+
+      worker.on('failed', (job, err) => {
+        emitInfraEvent({
+          stage: 'PROCESSING',
+          type: 'JOB_FAILED',
+          label: `Aggregation job failed on ${QUEUE_NAME}: ${err?.message || 'Error'}`,
+          status: 'error',
+          details: { queue: QUEUE_NAME, jobId: job?.id, error: err?.message }
+        });
+      });
+
+      infrastructureService.registerQueue(QUEUE_NAME, queue, worker);
+
       // Schedule recurring job every 60 seconds
       queue.add('aggregate-metrics', {}, {
         repeat: { every: 60 * 1000 },

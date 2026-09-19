@@ -1,7 +1,7 @@
 const metricService = require('../services/metric.service');
 const monitoringService = require('../services/monitoring.service');
 const prisma = require('../config/database');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, UnauthorizedError } = require('../utils/errors');
 
 class MetricController {
   /**
@@ -26,9 +26,13 @@ class MetricController {
    */
   async getDashboardSummary(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
       const summary = await metricService.getDashboardSummary(
-        req.user?.id,
-        req.user?.role === 'ADMIN'
+        req.user.id,
+        req.user.role === 'ADMIN'
       );
 
       res.json({
@@ -45,11 +49,15 @@ class MetricController {
    */
   async getDashboardMetrics(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
       const timeRange = req.query.timeRange || '24h';
       const metricType = req.query.metricType || 'requests'; // requests | errorRate | latency
 
       // Find user's first API or Payment API as key sample, or aggregates across user's APIs
-      const userWebsiteWhere = req.user?.role === 'ADMIN' ? {} : { userId: req.user?.id };
+      const userWebsiteWhere = req.user.role === 'ADMIN' ? {} : { userId: req.user.id };
       const apis = await prisma.api.findMany({
         where: { website: userWebsiteWhere },
         select: { id: true, name: true }
@@ -84,6 +92,10 @@ class MetricController {
    */
   async getApiMetrics(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('Authentication required');
+      }
+
       const { apiId } = req.params;
       const timeRange = req.query.timeRange || '24h';
 
@@ -93,7 +105,7 @@ class MetricController {
       });
 
       // Prefer 404 when outside accessible scope to avoid revealing existence
-      if (!api || (req.user?.role !== 'ADMIN' && api.website?.userId !== req.user?.id)) {
+      if (!api || (req.user.role !== 'ADMIN' && api.website?.userId !== req.user.id)) {
         throw new NotFoundError('API not found');
       }
 

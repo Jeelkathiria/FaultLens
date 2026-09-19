@@ -19,6 +19,16 @@ router.post(
 
 router.get('/', websiteController.getWebsites);
 
+router.get('/:id/health', websiteController.getWebsiteHealth);
+
+router.get('/:id/checks', websiteController.getWebsiteChecks);
+
+router.get('/:id/metrics', websiteController.getWebsiteMetrics);
+
+router.patch('/:id/monitoring', websiteController.updateWebsiteMonitoring);
+
+router.post('/:id/check', websiteController.checkWebsiteNow);
+
 router.get('/:id', websiteController.getWebsiteById);
 
 router.patch('/:id', websiteController.updateWebsite);

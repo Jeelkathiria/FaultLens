@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
+  ShieldCheck,
   Globe,
-  Layers,
   Activity,
   AlertTriangle,
   AlertOctagon,
@@ -13,44 +13,44 @@ export const SystemHierarchySection = () => {
   const steps = [
     {
       level: '01',
-      title: 'Website / Application',
-      example: 'Production Storefront (app.domain.com)',
-      desc: 'Registers global domains, clusters, and target health endpoints.',
-      icon: Globe,
+      title: 'Tenant Isolation & Ownership Chain',
+      example: 'Developer → Website → Web Probes / APIs',
+      desc: 'Strict multi-tenant security boundary. Every website, probe, and metric is cryptographically tied to the authenticated developer.',
+      icon: ShieldCheck,
     },
     {
       level: '02',
-      title: 'APIs & Services',
-      example: 'Payment API (/api/v1/checkout)',
-      desc: 'Tracks synthetic uptime probes, HTTP status distributions, and payload latencies.',
-      icon: Layers,
+      title: 'Websites & Applications (Dual-Path)',
+      example: 'Case A: Microservices with APIs · Case B: Standalone Web Apps',
+      desc: 'Websites without APIs receive direct automated HTTP/HTTPS health checks. Complex applications map child APIs with consolidated health.',
+      icon: Globe,
     },
     {
       level: '03',
-      title: 'Real-Time Metrics',
-      example: 'P95 Latency climbs 184ms → 742ms',
-      desc: 'Sub-second telemetry ingestion without sampling degradation.',
+      title: 'Web Probes & Real-Time Telemetry',
+      example: 'Automated GET Probes + Sub-second Ingestion',
+      desc: 'Real HTTP status codes, SSL validation, response times, and P95 latency streamed directly into Redis fast memory.',
       icon: Activity,
     },
     {
       level: '04',
-      title: 'Statistical Anomalies',
-      example: '4.8σ baseline breach detected',
-      desc: 'Adaptive machine learning envelopes filter transient noise from real regressions.',
+      title: '2.5σ Dynamic Statistical Baselines',
+      example: 'Baseline breach: Latency > (μ + 2.5σ, min 50ms buffer)',
+      desc: 'Dynamic statistical engine evaluates rolling 30-check windows. Filters natural traffic spikes while catching authentic regressions.',
       icon: AlertTriangle,
     },
     {
       level: '05',
-      title: 'Automated Incidents',
-      example: 'Incident #1042 declared with audit trail',
-      desc: 'Groups correlated alerts into a single actionable record with error traces.',
+      title: 'Automated Incidents & State Engine',
+      example: 'Incident #1042 declared with automated audit log',
+      desc: 'Consecutive probe dropouts or baseline breaches automatically create actionable incidents with complete error traces.',
       icon: AlertOctagon,
     },
     {
       level: '06',
       title: 'Deployment Correlation',
       example: 'Deploy v1.8 (commit #8f92a1) Correlated',
-      desc: 'Temporally links the regression spike to the recent deployment in minutes.',
+      desc: 'Temporally connects performance regressions directly to recent git commit releases within the change window.',
       icon: GitBranch,
     }
   ];

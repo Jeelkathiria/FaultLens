@@ -23,10 +23,22 @@ api.interceptors.response.use(
     return response.data;
   },
   (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || '';
+
+    // Handle 401 Unauthorized
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+    if (status === 401 && !isAuthEndpoint) {
+      localStorage.removeItem('faultlens_token');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+
     const errorData = error.response?.data?.error;
     const errorMsg = errorData?.message || error.message || 'Request failed';
     const customError = new Error(errorMsg);
-    customError.status = error.response?.status;
+    customError.status = status;
     customError.code = errorData?.code;
     customError.details = errorData?.details;
     if (!error.response) {

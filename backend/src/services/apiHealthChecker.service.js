@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 const { NotFoundError } = require('../utils/errors');
 const { cache } = require('../config/redis');
 const uptimeService = require('./uptime.service');
-const { emitApiHealthUpdated } = require('../websocket/socket');
+const { emitApiHealthUpdated, emitInfraEvent } = require('../websocket/socket');
 
 class ApiHealthCheckerService {
   /**
@@ -80,6 +80,14 @@ class ApiHealthCheckerService {
     const controller = new AbortController();
     const timerId = setTimeout(() => controller.abort(), timeoutMs);
 
+    emitInfraEvent({
+      stage: 'PROCESSING',
+      type: 'API_PROBE',
+      label: `Probing API [${method}] ${targetUrl}`,
+      status: 'active',
+      details: { apiId, targetUrl }
+    });
+
     try {
       const response = await fetch(targetUrl, {
         method,
@@ -98,8 +106,43 @@ class ApiHealthCheckerService {
       isSuccess = (statusCode === expectedStatusCode);
 
       if (isSuccess) {
-        // Evaluate if degraded due to high latency (> 3000ms)
-        status = responseTime > 3000 ? 'DEGRADED' : 'HEALTHY';
+        // Evaluate if degraded based on statistical baseline (last 30 measurements)
+        let recentMetrics = [];
+        try {
+          if (prisma.requestMetric && typeof prisma.requestMetric.findMany === 'function') {
+            recentMetrics = await prisma.requestMetric.findMany({
+              where: {
+                apiId: api.id,
+                responseTime: { gt: 0 }
+              },
+              orderBy: { timestamp: 'desc' },
+              take: 30
+            });
+          }
+        } catch (_) {
+          recentMetrics = [];
+        }
+
+        let baselineMean = 0;
+        let baselineStdDev = 0;
+        if (recentMetrics.length >= 3) {
+          const times = recentMetrics.map((m) => m.responseTime);
+          baselineMean = times.reduce((a, b) => a + b, 0) / times.length;
+          const variance = times.reduce((acc, val) => acc + Math.pow(val - baselineMean, 2), 0) / times.length;
+          baselineStdDev = Math.sqrt(variance);
+        }
+
+        const hasHighLatencyAnomaly = baselineMean > 0 &&
+          baselineStdDev > 0 &&
+          (responseTime - baselineMean) > 2.5 * baselineStdDev &&
+          (responseTime - baselineMean) > 50; // Minimum 50ms buffer to prevent microsecond noise
+
+        if (hasHighLatencyAnomaly) {
+          status = 'DEGRADED';
+          errorMessage = `Latency regression detected: ${responseTime}ms is >2.5σ above baseline (${Math.round(baselineMean)}ms)`;
+        } else {
+          status = 'HEALTHY';
+        }
       } else {
         if (statusCode >= 500) {
           status = 'CRITICAL';
@@ -191,6 +234,14 @@ class ApiHealthCheckerService {
           success: isSuccess
         }
       });
+
+      emitInfraEvent({
+        stage: 'DATABASE',
+        type: 'MONGODB_WRITE',
+        label: `Persisted API Health Check for ${api.name || api.id} (${responseTime}ms, ${status})`,
+        status: isSuccess ? 'success' : 'error',
+        details: { apiId: api.id, status, responseTime }
+      });
     } catch (metricErr) {
       logger.warn(`Failed to store RequestMetric for API ${api.id}: ${metricErr.message}`);
     }
@@ -268,6 +319,14 @@ class ApiHealthCheckerService {
     };
 
     emitApiHealthUpdated(api, resultPayload);
+
+    emitInfraEvent({
+      stage: 'WEBSOCKET',
+      type: 'WEBSOCKET_BROADCAST',
+      label: `Broadcast API health update (${status}) for ${api.name || api.id}`,
+      status: 'success',
+      details: { apiId: api.id, status }
+    });
 
     return resultPayload;
   }

@@ -2,7 +2,6 @@ import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   X,
-  Zap,
   LayoutDashboard,
   Globe,
   AlertOctagon,
@@ -13,16 +12,19 @@ import {
   Server
 } from 'lucide-react';
 import { useFaultLens } from '../../context/FaultLensContext';
+import { FaultLensLogo } from '../common/FaultLensLogo';
 
 export const MobileNav = ({ isOpen, onClose }) => {
-  const { role, switchRole, incidents } = useFaultLens();
+  const { role, switchRole, incidents, currentUser } = useFaultLens();
   const navigate = useNavigate();
 
   if (!isOpen) return null;
 
   const activeIncidentsCount = incidents.filter(i => i.severity !== 'resolved' && i.status !== 'resolved').length;
 
-  const navItems = role === 'admin'
+  const isActualAdmin = (currentUser?.role || '').toUpperCase() === 'ADMIN';
+
+  const navItems = isActualAdmin
     ? [
         { label: 'Admin Overview', path: '/admin', icon: LayoutDashboard },
         { label: 'Users & Roles', path: '/admin/users', icon: Users },
@@ -52,10 +54,8 @@ export const MobileNav = ({ isOpen, onClose }) => {
       <div className="relative w-4/5 max-w-xs bg-[#0F141D] border-r border-[#1E2633] h-full flex flex-col p-4 shadow-2xl z-10 animate-slide-down">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#1E2633]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-              <Zap className="w-5 h-5" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <FaultLensLogo size={28} showText={false} className="shrink-0" />
             <span className="font-bold text-base text-white">FaultLens</span>
           </div>
           <button
@@ -63,26 +63,6 @@ export const MobileNav = ({ isOpen, onClose }) => {
             className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg"
           >
             <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Role toggle */}
-        <div className="my-4 p-1 rounded-lg bg-[#080B12] border border-[#1E2633] flex">
-          <button
-            onClick={() => switchRole('developer')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
-              role === 'developer' ? 'bg-indigo-600 text-white' : 'text-slate-400'
-            }`}
-          >
-            Developer
-          </button>
-          <button
-            onClick={() => switchRole('admin')}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${
-              role === 'admin' ? 'bg-indigo-600 text-white' : 'text-slate-400'
-            }`}
-          >
-            Admin
           </button>
         </div>
 
@@ -119,14 +99,12 @@ export const MobileNav = ({ isOpen, onClose }) => {
 
         {/* User Info */}
         <div className="pt-4 border-t border-[#1E2633] flex items-center gap-3">
-          <img
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=64&h=64&fit=crop&crop=face"
-            alt="Jeel"
-            className="w-9 h-9 rounded-full border border-[#1E2633]"
-          />
+          <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-xs font-bold text-indigo-300">
+            {(currentUser?.name || 'Developer').substring(0, 2).toUpperCase()}
+          </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-slate-200">Jeel Kathiria</div>
-            <div className="text-xs text-slate-500 capitalize">{role} Account</div>
+            <div className="text-sm font-semibold text-slate-200 truncate">{currentUser?.name || 'Developer'}</div>
+            <div className="text-xs text-slate-500 capitalize">{currentUser?.role?.toLowerCase() || role} Account</div>
           </div>
         </div>
       </div>

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, ShieldCheck, UserCheck, ArrowLeft, Home } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, UserCheck, ArrowLeft } from 'lucide-react';
 import { useFaultLens } from '../../context/FaultLensContext';
 import { useToast } from '../../context/ToastContext';
 import { authService } from '../../services/auth';
 import { TechGeometricArtwork } from '../../components/auth/TechGeometricArtwork';
+import { FaultLensLogo } from '../../components/common/FaultLensLogo';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -81,13 +82,12 @@ export const LoginPage = () => {
           type: 'warning'
         });
       } else if (err.code === 'auth/unauthorized-domain') {
+        setErrorMessage('Domain not authorized. Please add this domain to Authorized Domains in Firebase Console.');
         addToast({
           title: 'Domain Not Whitelisted',
           message: 'Please add localhost to Authorized Domains in Firebase Console.',
-          type: 'warning'
+          type: 'error'
         });
-        switchRole('developer');
-        navigate('/dashboard');
       } else {
         setErrorMessage(err.message || 'Google sign-in could not be completed.');
         addToast({
@@ -123,54 +123,21 @@ export const LoginPage = () => {
           title="Return to FaultLens Landing Page"
         >
           <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform text-slate-500 group-hover:text-indigo-600" />
-          <span>← Back to Landing Page</span>
+          <span> Back to Landing Page</span>
         </Link>
       </div>
 
       {/* Outer Card Container */}
       <div className="w-full max-w-5xl bg-white rounded-[24px] sm:rounded-[28px] overflow-hidden shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18)] grid grid-cols-1 lg:grid-cols-12 border border-slate-100">
-        
+
         {/* LEFT COLUMN: Clean White Form Panel (7 cols on lg) */}
         <div className="lg:col-span-6 xl:col-span-6 flex flex-col justify-between p-7 sm:p-10 lg:p-12 bg-white">
           <div>
-            {/* Top Brand Logo & Landing Page Button: Stylized Geometric Crown Icon matching the reference */}
+            {/* Top Brand Logo & Quick Switchers */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
               <div className="flex items-center gap-2.5">
                 <Link to="/" className="inline-flex items-center gap-2 group" title="FaultLens Home">
-                  <svg
-                    width="36"
-                    height="36"
-                    viewBox="0 0 40 40"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="group-hover:scale-105 transition-transform"
-                  >
-                    {/* Geometric Crown Emblem */}
-                    <path
-                      d="M20 4L26 14L34 8L31 28H9L6 8L14 14L20 4Z"
-                      fill="#4F46E5"
-                    />
-                    <path
-                      d="M11 31H29V34H11V31Z"
-                      fill="#4338CA"
-                      rx="1.5"
-                    />
-                    {/* Diamond Center */}
-                    <polygon
-                      points="20,11 23,16 20,21 17,16"
-                      fill="#EEF2FF"
-                    />
-                  </svg>
-                </Link>
-
-                <Link
-                  to="/"
-                  id="btn-back-landing-header"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-indigo-600 bg-slate-100/90 hover:bg-indigo-50/80 border border-slate-200/90 hover:border-indigo-200 rounded-lg transition-all shadow-2xs group"
-                  title="Return to Landing Page"
-                >
-                  <Home className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
-                  <span>Landing Page</span>
+                  <FaultLensLogo size={32} light={true} textClassName="text-base font-bold" />
                 </Link>
               </div>
 
@@ -179,11 +146,10 @@ export const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => handleQuickFill('developer@faultlens.dev', 'Developer@12345', 'Developer 1')}
-                  className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
-                    email === 'developer@faultlens.dev'
-                      ? 'bg-white text-indigo-700 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${email === 'developer@faultlens.dev'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                    }`}
                   title="Load Developer 1 credentials (ShopSphere + FoodRush)"
                 >
                   <UserCheck className="w-3 h-3" />
@@ -192,11 +158,10 @@ export const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => handleQuickFill('dev2@faultlens.dev', 'Developer@12345', 'Developer 2')}
-                  className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
-                    email === 'dev2@faultlens.dev'
-                      ? 'bg-white text-emerald-700 shadow-xs'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-2 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${email === 'dev2@faultlens.dev'
+                    ? 'bg-white text-emerald-700 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                    }`}
                   title="Load Developer 2 credentials (TaskFlow)"
                 >
                   <UserCheck className="w-3 h-3" />
@@ -205,11 +170,10 @@ export const LoginPage = () => {
                 <button
                   type="button"
                   onClick={() => handleQuickFill('admin@faultlens.dev', 'Admin@12345', 'Platform Admin')}
-                  className={`px-2.5 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${
-                    email === 'admin@faultlens.dev'
-                      ? 'bg-purple-600 text-white shadow-xs'
-                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-900 border border-purple-200'
-                  }`}
+                  className={`px-2.5 py-0.5 rounded font-semibold transition-all flex items-center gap-1 ${email === 'admin@faultlens.dev'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-900 border border-purple-200'
+                    }`}
                   title="Load Admin credentials (All 3 websites)"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
@@ -358,21 +322,11 @@ export const LoginPage = () => {
             </button>
           </div>
 
-          {/* Footer Register & Landing Page Links */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600 font-normal">
-            <div>
-              Don't have an account ?{' '}
-              <Link to="/register" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline transition-colors">
-                Register here
-              </Link>
-            </div>
-            <Link
-              to="/"
-              id="btn-back-landing-footer"
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 font-medium transition-colors group"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Landing Page</span>
+          {/* Footer Register Link */}
+          <div className="mt-8 text-center text-xs text-slate-600 font-normal">
+            Don't have an account ?{' '}
+            <Link to="/register" className="text-[#4F46E5] hover:text-[#4338CA] font-semibold hover:underline transition-colors">
+              Register here
             </Link>
           </div>
         </div>

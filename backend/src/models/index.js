@@ -9,6 +9,7 @@ const Incident = require('./Incident');
 const IncidentEvent = require('./IncidentEvent');
 const Deployment = require('./Deployment');
 const Log = require('./Log');
+const WebsiteCheck = require('./WebsiteCheck');
 
 module.exports = {
   User,
@@ -21,5 +22,6 @@ module.exports = {
   Incident,
   IncidentEvent,
   Deployment,
-  Log
+  Log,
+  WebsiteCheck
 };

@@ -13,5 +13,7 @@ router.patch('/users/:id/status', adminController.toggleUserStatus);
 router.get('/websites', adminController.getWebsites);
 router.get('/incidents', adminController.getIncidents);
 router.get('/system-health', adminController.getSystemHealth);
+router.get('/infrastructure', adminController.getInfrastructure);
+router.get('/infrastructure/queues/:name/jobs', adminController.getQueueJobs);
 
 module.exports = router;

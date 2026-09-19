@@ -9,6 +9,7 @@ export const AddWebsiteModal = ({ isOpen, onClose }) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [environment, setEnvironment] = useState('Production');
+  const [monitoringInterval, setMonitoringInterval] = useState(60);
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,11 +38,13 @@ export const AddWebsiteModal = ({ isOpen, onClose }) => {
         name: name.trim(),
         url: url.trim(),
         environment,
+        monitoringInterval: Number(monitoringInterval) || 60,
         description: description.trim()
       });
       setName('');
       setUrl('');
       setEnvironment('Production');
+      setMonitoringInterval(60);
       setDescription('');
       setErrors({});
       onClose();
@@ -124,6 +127,21 @@ export const AddWebsiteModal = ({ isOpen, onClose }) => {
               );
             })}
           </div>
+        </div>
+
+        {/* Monitoring Interval */}
+        <div>
+          <label className="block text-xs font-medium text-slate-300 mb-1.5">HTTP Monitoring Interval</label>
+          <select
+            value={monitoringInterval}
+            onChange={(e) => setMonitoringInterval(Number(e.target.value))}
+            className="w-full px-3.5 py-2.5 rounded-lg bg-[#080B12] border border-[#1E2633] text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-mono transition-colors"
+          >
+            <option value={30}>Every 30 seconds (High frequency)</option>
+            <option value={60}>Every 60 seconds (Default)</option>
+            <option value={120}>Every 2 minutes</option>
+            <option value={300}>Every 5 minutes</option>
+          </select>
         </div>
 
         {/* Description */}

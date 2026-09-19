@@ -1,5 +1,5 @@
 const prisma = require('../config/database');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, UnauthorizedError } = require('../utils/errors');
 const { emitDeploymentCreated } = require('../websocket/socket');
 const logger = require('../utils/logger');
 
@@ -16,7 +16,7 @@ class DeploymentService {
       where: { id: data.websiteId }
     });
 
-    if (!website || (!isAdmin && userId && website.userId !== userId)) {
+    if (!website || (!isAdmin && (!userId || website.userId !== userId))) {
       throw new NotFoundError('Website not found');
     }
 
@@ -62,7 +62,10 @@ class DeploymentService {
   async getDeployments(filters = {}, userId = null, isAdmin = false) {
     const where = {};
 
-    if (!isAdmin && userId) {
+    if (!isAdmin) {
+      if (!userId) {
+        throw new UnauthorizedError('User authentication required');
+      }
       where.website = { userId };
     }
 
@@ -136,8 +139,13 @@ class DeploymentService {
       throw new NotFoundError('Deployment not found');
     }
 
-    if (!isAdmin && userId && deployment.website?.userId !== userId) {
-      throw new NotFoundError('Deployment not found');
+    if (!isAdmin) {
+      if (!userId) {
+        throw new UnauthorizedError('User authentication required');
+      }
+      if (deployment.website?.userId !== userId) {
+        throw new NotFoundError('Deployment not found');
+      }
     }
 
     return deployment;

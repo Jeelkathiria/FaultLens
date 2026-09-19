@@ -18,8 +18,9 @@ export const LandingNavbar = () => {
   }, []);
 
   const navLinks = [
-    { label: 'Why FaultLens', href: '#hierarchy', hasDropdown: false },
-    { label: 'Live Glimpse', href: '#glimpse', hasDropdown: false },
+    { label: 'Dual Monitoring', href: '#dual-monitoring', hasDropdown: false },
+    { label: 'Live Pipeline', href: '#pipeline', hasDropdown: false },
+    { label: 'Architecture', href: '#hierarchy', hasDropdown: false },
     { label: 'Anomaly Engine', href: '#anomaly-detection', hasDropdown: false },
     { label: 'Correlation', href: '#correlation', hasDropdown: false },
   ];

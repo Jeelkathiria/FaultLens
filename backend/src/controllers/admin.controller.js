@@ -86,11 +86,85 @@ class AdminController {
       const dbStatus = isDbConnected ? 'healthy' : 'degraded';
       const dbOperational = isDbConnected ? 'OPERATIONAL' : 'DOWN';
 
+      let dbLatencyMs = null;
+      if (isDbConnected && mongoose.connection.db) {
+        try {
+          const start = Date.now();
+          await mongoose.connection.db.admin().ping();
+          dbLatencyMs = Date.now() - start;
+        } catch (_) {}
+      }
+
       const isRedisOk = cache.isAvailable();
       const redisStatus = isRedisOk ? 'healthy' : 'degraded';
       const redisOperational = isRedisOk ? 'OPERATIONAL' : 'DEGRADED';
 
-      const metrics = await metricService.getSystemHealthMetrics();
+      let redisLatencyMs = null;
+      if (isRedisOk && cache.client) {
+        try {
+          const start = Date.now();
+          await cache.client.ping();
+          redisLatencyMs = Date.now() - start;
+        } catch (_) {}
+      }
+
+      // BullMQ queue job counts (only query if Redis is connected)
+      let queueSize = 0;
+      if (isRedisOk) {
+        try {
+          const { healthQueue } = require('../jobs/websiteHealthCheck.job');
+          if (healthQueue && typeof healthQueue.getJobCounts === 'function') {
+            const counts = await healthQueue.getJobCounts();
+            queueSize = (counts.waiting || 0) + (counts.active || 0) + (counts.delayed || 0);
+          }
+        } catch (_) {}
+      }
+
+      // Real Node.js process metrics
+      const mem = process.memoryUsage();
+      const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
+      const heapTotalMb = Math.round(mem.heapTotal / 1024 / 1024);
+      const memPct = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+
+      const uptimeSec = Math.floor(process.uptime());
+      const uptimeHours = (uptimeSec / 3600).toFixed(1);
+      const uptimeStr = uptimeSec < 3600 ? `${Math.floor(uptimeSec / 60)}m` : `${uptimeHours}h`;
+
+      // Real events/sec in the last 60 seconds
+      const oneMinAgo = new Date(Date.now() - 60 * 1000);
+      const reqCountLastMin = await prisma.requestMetric.count({ where: { timestamp: { gte: oneMinAgo } } });
+      const checkCountLastMin = await prisma.websiteCheck.count({ where: { timestamp: { gte: oneMinAgo } } });
+      const eventsPerSec = Math.round((reqCountLastMin + checkCountLastMin) / 60);
+
+      // Hourly platform ingest throughput across the last 24h
+      const hourlyThroughput = [];
+      const nowMs = Date.now();
+      const hourMs = 60 * 60 * 1000;
+      const oneDayAgo = new Date(nowMs - 24 * hourMs);
+
+      const recentMetrics = await prisma.requestMetric.findMany({
+        where: { timestamp: { gte: oneDayAgo } },
+        select: { timestamp: true }
+      });
+      const recentChecks = await prisma.websiteCheck.findMany({
+        where: { timestamp: { gte: oneDayAgo } },
+        select: { timestamp: true }
+      });
+
+      for (let h = 23; h >= 0; h--) {
+        const hStart = new Date(nowMs - (h + 1) * hourMs);
+        const hEnd = new Date(nowMs - h * hourMs);
+        const reqs = recentMetrics.filter((m) => m.timestamp >= hStart && m.timestamp < hEnd).length;
+        const chks = recentChecks.filter((c) => c.timestamp >= hStart && c.timestamp < hEnd).length;
+        const timeStr = hStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        hourlyThroughput.push({
+          time: timeStr,
+          throughput: reqs + chks
+        });
+      }
+
+      const activeWebsitesCount = await prisma.website.count({ where: { monitoringEnabled: true } });
+      const totalApisCount = await prisma.api.count();
 
       res.json({
         success: true,
@@ -107,53 +181,86 @@ class AdminController {
               status: dbStatus,
               operationalStatus: dbOperational,
               description: 'Primary document datastore for multi-tenant users, websites, APIs, metrics, and incidents.',
-              latency: '1.2ms',
-              throughput: 'Active pool',
-              version: 'MongoDB 8.x',
-              uptime: '99.99%'
+              latency: dbLatencyMs !== null ? `${dbLatencyMs}ms` : '—',
+              throughput: 'Connection pool active',
+              version: 'MongoDB',
+              uptime: dbOperational === 'OPERATIONAL' ? '100%' : '0%'
             },
             {
               name: 'Redis Cache & Queue',
               status: redisStatus,
               operationalStatus: redisOperational,
               description: 'In-memory sliding window buffers and BullMQ event distributor.',
-              latency: '0.8ms',
-              throughput: 'Nominal',
-              version: isRedisOk ? 'Redis 7' : 'In-Memory Cache Fallback',
-              uptime: '99.95%'
+              latency: redisLatencyMs !== null ? `${redisLatencyMs}ms` : '—',
+              throughput: isRedisOk ? 'Connected' : 'In-Memory Fallback',
+              version: isRedisOk ? 'Redis' : 'In-Memory Fallback',
+              uptime: isRedisOk ? '100%' : 'Degraded'
             },
             {
-              name: 'Anomaly Detection Engine',
+              name: 'Website HTTP Monitoring Engine',
               status: 'healthy',
               operationalStatus: 'OPERATIONAL',
-              description: 'Rolling baseline standard deviation analysis and threshold triggers.',
-              latency: '14.2ms',
-              throughput: '3.4k ops/sec',
-              version: 'v2.4.1',
-              uptime: '100.0%'
+              description: 'Live HTTP/HTTPS reachability, status verification, and SSL health probes.',
+              latency: 'Socket timer',
+              throughput: `${activeWebsitesCount} domains monitored`,
+              version: 'Node.js probe worker',
+              uptime: '100%'
             },
             {
-              name: 'Real-time WebSocket Gateway',
+              name: 'API Telemetry & Anomaly Gateway',
               status: 'healthy',
               operationalStatus: 'OPERATIONAL',
-              description: 'Bidirectional streaming for live telemetry, logs, and incidents.',
-              latency: '1.2ms',
-              throughput: 'Cluster synced',
-              version: 'Socket.IO v4',
-              uptime: '99.98%'
+              description: 'Adaptive statistical baseline analysis and multi-tenant telemetry ingestion.',
+              latency: 'Internal worker',
+              throughput: `${totalApisCount} endpoints configured`,
+              version: 'v2.1',
+              uptime: '100%'
             }
           ],
           systemMetrics: {
-            eventsPerSec: 4210,
-            queueSize: 12,
-            processingLatency: '14.2ms',
-            systemUptime: '99.99%',
-            cpuLoad: '28.4%',
-            memoryUsage: '42.1%'
+            eventsPerSec,
+            queueSize,
+            processingLatency: dbLatencyMs !== null ? `${dbLatencyMs}ms` : '—',
+            systemUptime: uptimeStr,
+            cpuLoad: `${Math.round((process.cpuUsage().user / 1000000) % 100)}%`,
+            memoryUsage: `${memPct}% (${heapUsedMb}MB / ${heapTotalMb}MB)`
           },
-          timestamp: new Date().toISOString(),
-          ...metrics
+          hourlyThroughput,
+          timestamp: new Date().toISOString()
         }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Real-time infrastructure flow snapshot (Queues, Redis, Workers, Recent Live Events)
+   */
+  async getInfrastructure(req, res, next) {
+    try {
+      const infrastructureService = require('../services/infrastructure.service');
+      const data = await infrastructureService.getInfrastructureSnapshot();
+      res.json({
+        success: true,
+        data
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Real-time BullMQ queue job drill-down
+   */
+  async getQueueJobs(req, res, next) {
+    try {
+      const { name } = req.params;
+      const infrastructureService = require('../services/infrastructure.service');
+      const jobs = await infrastructureService.getQueueJobs(name);
+      res.json({
+        success: true,
+        data: jobs
       });
     } catch (err) {
       next(err);

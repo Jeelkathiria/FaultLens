@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useFaultLens } from '../../context/FaultLensContext';
+import { FaultLensLogo } from '../common/FaultLensLogo';
 import {
   Menu,
   Bell,
@@ -58,9 +59,10 @@ export const Topbar = ({ onOpenMobileNav }) => {
         <nav className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
           <Link
             to={role === 'admin' ? '/admin' : '/dashboard'}
-            className="hover:text-slate-200 transition-colors text-slate-400"
+            className="hover:text-slate-200 transition-colors text-slate-400 flex items-center gap-1.5"
           >
-            FaultLens
+            <FaultLensLogo size={18} showText={false} className="shrink-0" />
+            <span>FaultLens</span>
           </Link>
           {pathSegments.map((segment, index) => {
             const url = `/${pathSegments.slice(0, index + 1).join('/')}`;

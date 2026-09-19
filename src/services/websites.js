@@ -21,6 +21,28 @@ export const websiteService = {
     return api.delete(`/websites/${id}`);
   },
 
+  // Website HTTP Monitoring
+  getWebsiteHealth(websiteId) {
+    return api.get(`/websites/${websiteId}/health`);
+  },
+
+  getWebsiteChecks(websiteId, params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/websites/${websiteId}/checks${query ? `?${query}` : ''}`);
+  },
+
+  getWebsiteMetrics(websiteId, timeRange = '24h') {
+    return api.get(`/websites/${websiteId}/metrics?timeRange=${timeRange}`);
+  },
+
+  updateWebsiteMonitoring(websiteId, data) {
+    return api.patch(`/websites/${websiteId}/monitoring`, data);
+  },
+
+  checkWebsiteNow(websiteId) {
+    return api.post(`/websites/${websiteId}/check`);
+  },
+
   // API sub-resources
   getApisByWebsite(websiteId) {
     return api.get(`/websites/${websiteId}/apis`);

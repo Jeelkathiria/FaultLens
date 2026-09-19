@@ -179,11 +179,11 @@ class MetricService {
     const cached = await cache.get(cacheKey);
     if (cached) return cached;
 
-    const websiteWhere = !isAdmin && userId ? { userId } : {};
+    const websiteWhere = isAdmin ? {} : { userId: userId || 'none' };
 
     const websites = await prisma.website.findMany({
       where: websiteWhere,
-      select: { id: true, status: true }
+      select: { id: true, status: true, healthStatus: true }
     });
 
     const websiteIds = websites.map((w) => w.id);
@@ -195,25 +195,48 @@ class MetricService {
 
     const activeIncidents = await prisma.incident.count({
       where: {
-        api: { websiteId: { in: websiteIds } },
+        websiteId: { in: websiteIds },
         status: { in: ['DETECTED', 'INVESTIGATING'] }
       }
     });
 
+    // Website-level status breakdown
+    const operationalWebsites = websites.filter((w) => w.status === 'healthy' || (!w.status && w.healthStatus === 'UP')).length;
+    const degradedWebsites = websites.filter((w) => w.status === 'degraded' || w.healthStatus === 'DEGRADED').length;
+    const criticalWebsites = websites.filter((w) => w.status === 'critical' || w.healthStatus === 'DOWN').length;
+
+    // API-level status breakdown
     const totalApis = apis.length;
-    const healthyApis = apis.filter((a) => a.status === 'healthy').length;
-    const degradedApis = apis.filter((a) => a.status === 'degraded').length;
-    const criticalApis = apis.filter((a) => a.status === 'critical').length;
+    const healthyApis = apis.filter((a) => (a.status || '').toLowerCase() === 'healthy').length;
+    const degradedApis = apis.filter((a) => (a.status || '').toLowerCase() === 'degraded').length;
+    const criticalApis = apis.filter((a) => (a.status || '').toLowerCase() === 'critical').length;
 
     // Calculate rolling uptime across websites
     let totalUptime = 0;
+    let measuredWebsites = 0;
     for (const w of websites) {
-      totalUptime += await uptimeService.getWebsiteUptime(w.id);
+      const u = await uptimeService.getWebsiteUptime(w.id);
+      if (u !== null && u !== undefined) {
+        totalUptime += u;
+        measuredWebsites++;
+      }
     }
-    const overallUptime = websites.length > 0 ? +(totalUptime / websites.length).toFixed(2) : 99.95;
+    const overallUptime = measuredWebsites > 0 ? +(totalUptime / measuredWebsites).toFixed(2) : null;
 
     const summary = {
       websites: websites.length,
+      websitesBreakdown: {
+        total: websites.length,
+        operational: operationalWebsites,
+        degraded: degradedWebsites,
+        critical: criticalWebsites
+      },
+      apisBreakdown: {
+        total: totalApis,
+        healthy: healthyApis,
+        degraded: degradedApis,
+        critical: criticalApis
+      },
       totalApis,
       healthyApis,
       degradedApis,
@@ -234,67 +257,22 @@ class MetricService {
     const totalRequestsToday = await prisma.requestMetric.count({
       where: { timestamp: { gte: oneDayAgo } }
     });
+    const totalChecksToday = await prisma.websiteCheck.count({
+      where: { timestamp: { gte: oneDayAgo } }
+    });
+
+    const mem = process.memoryUsage();
+    const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
+    const heapTotalMb = Math.round(mem.heapTotal / 1024 / 1024);
+    const memPct = Math.round((mem.heapUsed / mem.heapTotal) * 100);
 
     return {
       status: 'healthy',
       database: 'connected',
       redis: cache.isAvailable() ? 'connected' : 'in-memory-fallback',
-      services: [
-        {
-          name: 'API Collector',
-          description: 'High-throughput UDP/gRPC edge ingest cluster',
-          status: 'healthy',
-          uptime: '99.99%',
-          latency: '3ms',
-          throughput: '4,210 events/sec',
-          version: 'v3.4.1'
-        },
-        {
-          name: 'Monitoring Engine',
-          description: 'Time-series anomaly detector & threshold evaluator',
-          status: 'healthy',
-          uptime: '99.98%',
-          latency: '18ms',
-          throughput: '3,890 checks/sec',
-          version: 'v2.1.0'
-        },
-        {
-          name: 'Redis Cache',
-          description: 'Sliding-window rate limiter & real-time metric cache',
-          status: cache.isAvailable() ? 'healthy' : 'degraded',
-          uptime: '100%',
-          latency: '< 1ms',
-          throughput: '14,200 ops/sec',
-          version: '7.2-alpine'
-        },
-        {
-          name: 'MongoDB Database',
-          description: 'Primary document datastore for multi-tenant users, websites, APIs, metrics, and incidents',
-          status: 'healthy',
-          uptime: '99.99%',
-          latency: '2ms',
-          throughput: '1,420 ops/sec',
-          version: 'MongoDB 8.x'
-        },
-        {
-          name: 'WebSocket Server',
-          description: 'Live subscription broadcaster for dashboard clients',
-          status: 'healthy',
-          uptime: '99.95%',
-          latency: '8ms',
-          throughput: '1,840 conns active',
-          version: 'v4.7.5'
-        }
-      ],
       systemMetrics: {
-        eventsPerSec: 4210,
-        queueSize: 142,
-        processingLatency: '18.4ms',
-        systemUptime: '99.99%',
-        activeNodes: 12,
-        memoryUsage: '64.2%',
-        cpuLoad: '38.5%',
-        totalRequestsToday: totalRequestsToday > 0 ? totalRequestsToday : 124580
+        memoryUsage: `${memPct}% (${heapUsedMb}MB / ${heapTotalMb}MB)`,
+        totalRequestsToday: totalRequestsToday + totalChecksToday
       }
     };
   }

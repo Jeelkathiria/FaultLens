@@ -24,7 +24,7 @@ export const IncidentDetailsPage = () => {
   const navigate = useNavigate();
   const { incidents, websites, updateIncidentStatus } = useFaultLens();
 
-  const incident = incidents.find(i => i.id === incidentId) || incidents[0];
+  const incident = incidents.find(i => i.id === incidentId);
 
   if (!incident) {
     return (
@@ -36,8 +36,8 @@ export const IncidentDetailsPage = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Incidents</span>
         </Link>
-        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
-          N/A - Incident not found or no incident records available.
+        <div className="p-12 text-center text-xs font-mono text-slate-400 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+          Incident not found. The requested incident does not exist or has been removed.
         </div>
       </div>
     );
@@ -138,7 +138,9 @@ export const IncidentDetailsPage = () => {
             {incident.metrics?.latencyBefore || 'N/A'} → {incident.metrics?.latencyCurrent || 'N/A'}
           </div>
           <div className="text-[11px] text-slate-400 mt-1.5 font-sans">
-            +1,230% tail response degradation
+            {incident.metrics?.latencyBefore && incident.metrics?.latencyCurrent
+              ? `Degradation from ${incident.metrics.latencyBefore} to ${incident.metrics.latencyCurrent}`
+              : 'Latency regression window'}
           </div>
         </div>
 
@@ -196,7 +198,7 @@ export const IncidentDetailsPage = () => {
               <h3 className="text-sm font-semibold text-slate-100">Incident Event Progression Timeline</h3>
               <p className="text-xs text-slate-400 mt-0.5">Chronological breakdown from deployment to triage</p>
             </div>
-            <span className="text-xs font-mono text-slate-400">5 logged events</span>
+            <span className="text-xs font-mono text-slate-400">{incident.timeline?.length || 0} logged events</span>
           </div>
 
           <IncidentTimeline timeline={incident.timeline} />
@@ -209,11 +211,11 @@ export const IncidentDetailsPage = () => {
             <div className="space-y-3 font-mono text-xs">
               <div className="p-3 rounded-lg bg-[#080B12] border border-[#1E2633]">
                 <div className="text-slate-500 text-[10px] uppercase tracking-wider">Affected Requests</div>
-                <div className="text-slate-200 font-bold text-sm mt-0.5">{incident.metrics?.affectedRequests || '4,210'}</div>
+                <div className="text-slate-200 font-bold text-sm mt-0.5">{incident.metrics?.affectedRequests !== undefined && incident.metrics?.affectedRequests !== null ? incident.metrics.affectedRequests : '0'}</div>
               </div>
               <div className="p-3 rounded-lg bg-[#080B12] border border-[#1E2633]">
                 <div className="text-slate-500 text-[10px] uppercase tracking-wider">Impacted User Sessions</div>
-                <div className="text-amber-400 font-bold text-sm mt-0.5">{incident.metrics?.impactedUsers || '~1,450'}</div>
+                <div className="text-amber-400 font-bold text-sm mt-0.5">{incident.metrics?.impactedUsers || 'N/A (HTTP Synthetic Probe)'}</div>
               </div>
             </div>
           </div>

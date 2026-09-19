@@ -1,19 +1,19 @@
 const express = require('express');
 const { body } = require('express-validator');
 const metricController = require('../controllers/metric.controller');
-const { authenticate, authenticateApiKey, optionalAuthenticate } = require('../middleware/auth.middleware');
+const { authenticate, authenticateApiKey } = require('../middleware/auth.middleware');
 const { telemetryLimiter } = require('../middleware/rateLimit.middleware');
 const validate = require('../middleware/validation.middleware');
 
 const router = express.Router();
 
-// Public / Authenticated dashboard endpoints
-router.get('/dashboard/summary', optionalAuthenticate, metricController.getDashboardSummary);
-router.get('/dashboard/metrics', optionalAuthenticate, metricController.getDashboardMetrics);
+// Authenticated dashboard endpoints
+router.get('/dashboard/summary', authenticate, metricController.getDashboardSummary);
+router.get('/dashboard/metrics', authenticate, metricController.getDashboardMetrics);
 router.get('/dashboard/health', metricController.getHealth);
 
 // API specific metrics
-router.get('/metrics/:apiId', optionalAuthenticate, metricController.getApiMetrics);
+router.get('/metrics/:apiId', authenticate, metricController.getApiMetrics);
 
 // Telemetry Ingestion (Authenticated with API Key)
 router.post(

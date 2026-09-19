@@ -31,11 +31,20 @@ export const FaultLensProvider = ({ children }) => {
     apisCount: 0,
     activeIncidentsCount: 0,
     totalRequestsToday: '0',
-    avgSystemUptime: '100%'
+    avgSystemUptime: '—'
   });
 
   // Live simulation toggle
   const [isLiveSimulation, setIsLiveSimulation] = useState(false);
+
+  const handleSetCurrentUser = useCallback((user) => {
+    setCurrentUser(user);
+    if (user && user.role) {
+      setRole(user.role.toUpperCase() === 'ADMIN' ? 'admin' : 'developer');
+    } else {
+      setRole('developer');
+    }
+  }, []);
 
   // Initial Startup Authentication Check per rule:
   // 1. Check localStorage for faultlens_token.
@@ -48,25 +57,24 @@ export const FaultLensProvider = ({ children }) => {
         try {
           const res = await authService.getMe();
           if (res && res.user) {
-            setCurrentUser(res.user);
-            setRole(res.user.role ? res.user.role.toLowerCase() : 'developer');
+            handleSetCurrentUser(res.user);
           } else {
             localStorage.removeItem('faultlens_token');
-            setCurrentUser(null);
+            handleSetCurrentUser(null);
           }
         } catch (err) {
           console.warn('Failed to restore user session:', err.message);
           localStorage.removeItem('faultlens_token');
-          setCurrentUser(null);
+          handleSetCurrentUser(null);
         }
       } else {
-        setCurrentUser(null);
+        handleSetCurrentUser(null);
       }
       setIsLoading(false);
     };
 
     initAuth();
-  }, []);
+  }, [handleSetCurrentUser]);
 
   // Initial Data Fetch from Backend REST API for authenticated user
   const refreshBackendData = useCallback(async () => {
@@ -115,21 +123,30 @@ export const FaultLensProvider = ({ children }) => {
       }
 
       if (role === 'admin') {
-        const [fetchedUsers, fetchedSummary] = await Promise.allSettled([
+        const [fetchedUsers, fetchedSummary, fetchedHealth] = await Promise.allSettled([
           adminService.getUsers(),
-          adminService.getDashboardSummary()
+          adminService.getDashboardSummary(),
+          adminService.getSystemHealth()
         ]);
         if (fetchedUsers.status === 'fulfilled' && Array.isArray(fetchedUsers.value)) {
           setUsers(fetchedUsers.value);
         }
         if (fetchedSummary.status === 'fulfilled' && fetchedSummary.value) {
+          const healthData = fetchedHealth.status === 'fulfilled' ? fetchedHealth.value : null;
+          const reqToday = healthData?.systemMetrics?.totalRequestsToday !== undefined
+            ? healthData.systemMetrics.totalRequestsToday
+            : (fetchedSummary.value.totalRequestsToday !== undefined ? fetchedSummary.value.totalRequestsToday : 0);
+          const uptimeVal = fetchedSummary.value.overallUptime !== null && fetchedSummary.value.overallUptime !== undefined
+            ? `${fetchedSummary.value.overallUptime}%`
+            : '—';
+
           setAdminStats({
             usersCount: fetchedUsers.status === 'fulfilled' ? fetchedUsers.value.length : 0,
             websitesCount: fetchedSummary.value.websites || 0,
             apisCount: fetchedSummary.value.totalApis || 0,
             activeIncidentsCount: fetchedSummary.value.activeIncidents || 0,
-            totalRequestsToday: '124.5K',
-            avgSystemUptime: `${fetchedSummary.value.overallUptime || 99.95}%`
+            totalRequestsToday: typeof reqToday === 'number' ? reqToday.toLocaleString() : (reqToday || '0'),
+            avgSystemUptime: uptimeVal
           });
         }
       }
@@ -261,6 +278,66 @@ export const FaultLensProvider = ({ children }) => {
       );
     });
 
+    socket.on('WEBSITE_HEALTH_UPDATED', (payload) => {
+      setWebsites((prev) =>
+        prev.map((w) => {
+          if (w.id === payload.websiteId) {
+            return {
+              ...w,
+              health: payload.status || w.health,
+              healthStatus: payload.healthStatus || w.healthStatus,
+              lastStatusCode: payload.statusCode !== undefined ? payload.statusCode : w.lastStatusCode,
+              lastResponseTime: payload.responseTime !== undefined ? payload.responseTime : w.lastResponseTime,
+              lastCheckedAt: payload.checkedAt || w.lastCheckedAt,
+              lastChecked: 'Just now',
+              sslValid: payload.sslValid !== undefined ? payload.sslValid : w.sslValid,
+              lastError: payload.error || null
+            };
+          }
+          return w;
+        })
+      );
+    });
+
+    socket.on('WEBSITE_CHECK_FAILED', (payload) => {
+      addToast({
+        title: `⚠️ Website Probe Failed: ${payload.name}`,
+        message: payload.errorMessage || `HTTP ${payload.statusCode || 'Connection Error'}`,
+        type: 'critical'
+      });
+    });
+
+    socket.on('WEBSITE_CHECK_RECOVERED', (payload) => {
+      setWebsites((prev) =>
+        prev.map((w) =>
+          w.id === payload.websiteId
+            ? { ...w, health: 'healthy', healthStatus: 'UP', lastResponseTime: payload.responseTime, lastChecked: 'Just now' }
+            : w
+        )
+      );
+      addToast({
+        title: `✅ Website Probe Recovered: ${payload.name}`,
+        message: `HTTP check restored (${payload.responseTime}ms)`,
+        type: 'success'
+      });
+    });
+
+    socket.on('WEBSITE_INCIDENT_CREATED', (incident) => {
+      setIncidents((prev) => {
+        const exists = prev.some((i) => i.id === incident.id);
+        if (exists) return prev;
+        return [incident, ...prev];
+      });
+
+      setWebsites((prev) =>
+        prev.map((w) =>
+          w.id === incident.websiteId
+            ? { ...w, health: 'critical', healthStatus: 'DOWN', activeIncidents: (w.activeIncidents || 0) + 1 }
+            : w
+        )
+      );
+    });
+
     return () => {
       socket.off('METRIC_UPDATED');
       socket.off('ANOMALY_DETECTED');
@@ -269,6 +346,10 @@ export const FaultLensProvider = ({ children }) => {
       socket.off('INCIDENT_RESOLVED');
       socket.off('DEPLOYMENT_CREATED');
       socket.off('API_HEALTH_UPDATED');
+      socket.off('WEBSITE_HEALTH_UPDATED');
+      socket.off('WEBSITE_CHECK_FAILED');
+      socket.off('WEBSITE_CHECK_RECOVERED');
+      socket.off('WEBSITE_INCIDENT_CREATED');
     };
   }, [addToast]);
 
@@ -387,6 +468,51 @@ export const FaultLensProvider = ({ children }) => {
     [addToast]
   );
 
+  const checkWebsiteNow = useCallback(
+    async (websiteId) => {
+      try {
+        const res = await websiteService.checkWebsiteNow(websiteId);
+        const result = res.data || res;
+        const check = result.check || result;
+        const health = result.health || {};
+
+        setWebsites((prev) =>
+          prev.map((w) => {
+            if (w.id === websiteId) {
+              return {
+                ...w,
+                health: health.status || w.health,
+                healthStatus: health.healthStatus || check.status || w.healthStatus,
+                lastStatusCode: check.statusCode,
+                lastResponseTime: check.responseTime,
+                lastCheckedAt: check.timestamp || new Date().toISOString(),
+                sslValid: check.sslValid,
+                lastChecked: 'Just now',
+                lastError: check.errorMessage || null
+              };
+            }
+            return w;
+          })
+        );
+
+        addToast({
+          title: `Website Check: ${health.healthStatus || check.status || 'Done'}`,
+          message: `HTTP ${check.statusCode || 0} (${check.responseTime || 0}ms) ${check.status === 'UP' ? '— Operational' : check.errorMessage ? `— ${check.errorMessage}` : ''}`,
+          type: check.status === 'UP' ? 'success' : check.status === 'DEGRADED' ? 'warning' : 'critical'
+        });
+        return result;
+      } catch (err) {
+        addToast({
+          title: 'Website Check Failed',
+          message: err.message,
+          type: 'error'
+        });
+        throw err;
+      }
+    },
+    [addToast]
+  );
+
   const updateIncidentStatus = useCallback(
     async (incidentId, newStatus) => {
       try {
@@ -397,7 +523,7 @@ export const FaultLensProvider = ({ children }) => {
           const inc = incidents.find((i) => i.id === incidentId);
           if (inc) {
             setApis((prev) =>
-              prev.map((a) => (a.id === inc.apiId ? { ...a, status: 'healthy', errorRate: 0.2, p95Latency: 140 } : a))
+              prev.map((a) => (a.id === inc.apiId ? { ...a, status: 'healthy' } : a))
             );
             setWebsites((prev) =>
               prev.map((w) =>
@@ -407,6 +533,7 @@ export const FaultLensProvider = ({ children }) => {
               )
             );
           }
+          refreshBackendData();
         }
 
         addToast({
@@ -418,7 +545,7 @@ export const FaultLensProvider = ({ children }) => {
         addToast({ title: 'Update Failed', message: err.message, type: 'error' });
       }
     },
-    [incidents, addToast]
+    [incidents, addToast, refreshBackendData]
   );
 
   const toggleUserStatus = useCallback(
@@ -448,22 +575,10 @@ export const FaultLensProvider = ({ children }) => {
 
   const triggerAnomalyDemo = useCallback(() => {
     addToast({
-      title: 'Simulating Anomaly Progression',
-      message: 'Triggering live telemetry spike on Payment Gateway',
-      type: 'warning'
+      title: 'Simulation Notice',
+      message: 'Active monitoring operates exclusively on real HTTP probe and live telemetry data.',
+      type: 'info'
     });
-
-    setTimeout(() => {
-      setApis((prev) =>
-        prev.map((a) => (a.endpoint?.includes('payment') ? { ...a, status: 'degraded', errorRate: 5.4, p95Latency: 840 } : a))
-      );
-    }, 1500);
-
-    setTimeout(() => {
-      setApis((prev) =>
-        prev.map((a) => (a.endpoint?.includes('payment') ? { ...a, status: 'critical', errorRate: 17.8, p95Latency: 2800 } : a))
-      );
-    }, 3500);
   }, [addToast]);
 
   const simulateIncident = useCallback(
@@ -510,10 +625,10 @@ export const FaultLensProvider = ({ children }) => {
   return (
     <FaultLensContext.Provider
       value={{
-        role,
+        role: (currentUser?.role || '').toUpperCase() === 'ADMIN' ? 'admin' : 'developer',
         switchRole,
         currentUser,
-        setCurrentUser,
+        setCurrentUser: handleSetCurrentUser,
         isLoading,
         logout,
         websites,
@@ -526,6 +641,7 @@ export const FaultLensProvider = ({ children }) => {
         addWebsite,
         addApi,
         checkApiNow,
+        checkWebsiteNow,
         updateIncidentStatus,
         toggleUserStatus,
         refreshBackendData,

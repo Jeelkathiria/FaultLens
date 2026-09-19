@@ -6,13 +6,13 @@ export const HowItWorksSection = () => {
     {
       number: '01',
       title: 'Monitor',
-      description: 'Track requests, latency, uptime, and errors across your APIs with sub-second precision.',
+      description: 'Dual-engine monitoring: direct HTTP/HTTPS probes for standalone websites and telemetry ingestion for microservice APIs.',
       icon: Activity,
     },
     {
       number: '02',
       title: 'Detect',
-      description: 'Identify abnormal behavior using continuous monitoring baselines and 4-sigma anomaly detection.',
+      description: 'Identify abnormal behavior using dynamic 2.5σ statistical baselines (μ + 2.5σ, min 50ms buffer) over rolling 30-check windows.',
       icon: Sparkles,
     },
     {

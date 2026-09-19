@@ -8,6 +8,8 @@ import { LandingNavbar } from '../../components/landing/LandingNavbar';
 import { HeroBackground } from '../../components/landing/HeroBackground';
 import { HeroProductVisual } from '../../components/landing/HeroProductVisual';
 import { TrustMetricsStrip } from '../../components/landing/TrustMetricsStrip';
+import { DualMonitoringSection } from '../../components/landing/DualMonitoringSection';
+import { LivePipelineSection } from '../../components/landing/LivePipelineSection';
 import { LiveGlimpseSection } from '../../components/landing/LiveGlimpseSection';
 import { SystemHierarchySection } from '../../components/landing/SystemHierarchySection';
 import { AnomalyDetectionSection } from '../../components/landing/AnomalyDetectionSection';
@@ -39,14 +41,14 @@ export const LandingPage = () => {
 
         <div className="max-w-7xl mx-auto px-6 sm:px-8 relative z-10">
           
-          {/* Release Pill Badge (Styled exactly like reference screenshot) */}
+          {/* Release Pill Badge */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md text-xs font-normal text-slate-300 mb-8 hover:border-white/20 transition-colors"
           >
-            <span>Brand new release: v1.8 Professional</span>
+            <span>Brand new release: v1.8 · Dual-Engine Architecture</span>
           </motion.div>
 
           {/* Main Clean Headline */}
@@ -56,9 +58,9 @@ export const LandingPage = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-[1.08] max-w-4xl"
           >
-            Monitor. Detect.{' '}
+            Observability for Websites & APIs.{' '}
             <span className="block bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-[#A7F3D0]">
-              Investigate.
+              With or without APIs. 100% True Data.
             </span>
           </motion.h1>
 
@@ -69,10 +71,10 @@ export const LandingPage = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-base sm:text-lg text-slate-400 max-w-2xl mb-10 leading-relaxed font-normal"
           >
-            FaultLens gives developers real-time visibility into API health, detects abnormal behavior, and connects incidents to deployments before small issues become major outages. Built with developers in mind.
+            FaultLens delivers true multi-tenant observability across standalone web apps and complex microservice APIs. Direct HTTP/HTTPS probes, sub-second telemetry ingestion, 2.5σ baseline detection, and automated deployment correlation — with zero fake data.
           </motion.p>
 
-          {/* Combined CTA Pill Bar (Styled exactly like reference image) */}
+          {/* Combined CTA Pill Bar */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -92,7 +94,7 @@ export const LandingPage = () => {
 
               <input
                 type="text"
-                placeholder="your email or api endpoint"
+                placeholder="your email or website domain"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 className="bg-transparent text-xs text-white placeholder-slate-500 px-3 py-1.5 outline-none flex-1 font-mono"
@@ -122,6 +124,12 @@ export const LandingPage = () => {
 
       {/* Trust & Real-Time Metrics Strip */}
       <TrustMetricsStrip />
+
+      {/* Dual Monitoring Section: Case A (Websites with APIs) vs Case B (Websites without APIs) */}
+      <DualMonitoringSection />
+
+      {/* Live Infrastructure Flow Pipeline */}
+      <LivePipelineSection />
 
       {/* Live System Glimpse (Framer Motion Interactive Inspector) */}
       <LiveGlimpseSection />

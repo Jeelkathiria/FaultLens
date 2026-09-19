@@ -58,8 +58,10 @@ const ProtectedDashboard = () => {
  * Admin role guard
  */
 const AdminOnlyRoute = ({ children }) => {
-  const { role } = useFaultLens();
-  if (role !== 'admin') {
+  const { currentUser, isLoading } = useFaultLens();
+  if (isLoading) return null;
+  const isActualAdmin = (currentUser?.role || '').toUpperCase() === 'ADMIN';
+  if (!isActualAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
   return children;

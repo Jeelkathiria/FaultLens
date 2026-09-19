@@ -1,26 +1,27 @@
 const express = require('express');
 const { body } = require('express-validator');
 const incidentController = require('../controllers/incident.controller');
-const { authenticate, optionalAuthenticate } = require('../middleware/auth.middleware');
+const { authenticate } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validation.middleware');
 
 const router = express.Router();
 
-router.get('/', optionalAuthenticate, incidentController.getIncidents);
-router.get('/:id', optionalAuthenticate, incidentController.getIncidentById);
+router.use(authenticate);
+
+router.get('/', incidentController.getIncidents);
+router.get('/:id', incidentController.getIncidentById);
 
 // Status modification requires auth
 router.patch(
   '/:id/status',
-  authenticate,
   validate([
     body('status').trim().notEmpty().withMessage('Status is required')
   ]),
   incidentController.updateStatus
 );
 
-router.post('/:id/acknowledge', authenticate, incidentController.acknowledgeIncident);
-router.post('/:id/resolve', authenticate, incidentController.resolveIncident);
-router.post('/simulate', authenticate, incidentController.simulateIncident);
+router.post('/:id/acknowledge', incidentController.acknowledgeIncident);
+router.post('/:id/resolve', incidentController.resolveIncident);
+router.post('/simulate', incidentController.simulateIncident);
 
 module.exports = router;

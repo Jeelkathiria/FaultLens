@@ -86,7 +86,7 @@ class CorrelationService {
         detectedAt: formatTime(anomalyTimestamp),
         timeDifference: `${diffMinutes} minutes`,
         commit: deployment.commitHash.substring(0, 7),
-        author: deployment.author || 'alex.chen',
+        author: deployment.author || 'Unknown',
         message: deployment.message || `Release ${deployment.version}`,
         description: `Potential deployment correlation: Error rate and latency shifted significantly ${diffMinutes} minutes post-deploy of ${deployment.version}.`
       };

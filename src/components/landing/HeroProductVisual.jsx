@@ -68,7 +68,7 @@ export const HeroProductVisual = () => {
       errorRate: '12.4%',
       latency: '680ms',
       uptime: '99.82%',
-      statusText: 'Anomaly: 4.8σ latency spike',
+      statusText: 'Anomaly: 2.5σ baseline breach',
       paymentStatus: 'Degraded',
       paymentBadge: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
       anomaly: true,
@@ -251,7 +251,7 @@ export const HeroProductVisual = () => {
               {stage >= 3 && (
                 <span className="text-xs font-mono text-red-400 font-semibold flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping" />
-                  ANOMALY DETECTED: 4.8σ LATENCY SPIKE
+                  ANOMALY DETECTED: 2.5σ BASELINE BREACH
                 </span>
               )}
             </div>

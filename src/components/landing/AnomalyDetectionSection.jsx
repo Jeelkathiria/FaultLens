@@ -17,7 +17,7 @@ export const AnomalyDetectionSection = () => {
             <span className="text-slate-400">Before users do.</span>
           </h2>
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-            Static thresholds fail during organic traffic surges. FaultLens evaluates rolling 4-sigma deviations, learning your system's natural rhythms to identify genuine regressions.
+            Static thresholds fail during organic traffic surges. FaultLens computes dynamic 2.5σ statistical baselines over rolling 30-check windows, filtering transient jitter while capturing genuine regressions.
           </p>
         </div>
 
@@ -31,7 +31,7 @@ export const AnomalyDetectionSection = () => {
                 Route: <code className="text-emerald-400">POST /api/v1/checkout/charge</code>
               </div>
               <div className="text-xs text-slate-500 mt-0.5">
-                Evaluation: 5-minute statistical window against 7-day learned baseline
+                Evaluation: Rolling 30-check statistical window against learned baseline (μ + 2.5σ)
               </div>
             </div>
 
@@ -60,13 +60,13 @@ export const AnomalyDetectionSection = () => {
           <div className="py-6">
             <div className="flex items-center justify-between mb-3 text-xs font-mono">
               <div className="flex items-center gap-4 text-slate-400">
-                <span>Dashed: 3σ Confidence Envelope</span>
+                <span>Dashed: 2.5σ Confidence Envelope</span>
                 <span>Solid: Observed Telemetry</span>
               </div>
               {showAnomaly && (
                 <span className="text-red-400 font-semibold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  ANOMALY DETECTED (+4.8σ)
+                  ANOMALY DETECTED (+2.5σ BREACH)
                 </span>
               )}
             </div>
@@ -156,8 +156,8 @@ export const AnomalyDetectionSection = () => {
 
             <div className="p-3.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
               <div className="text-xs font-mono text-slate-400">DETECTION ALGORITHM</div>
-              <div className="text-xl font-bold font-mono text-white mt-1">4-Sigma EWMA</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Exponentially weighted deviation</div>
+              <div className="text-xl font-bold font-mono text-white mt-1">2.5σ Dynamic Baseline</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">μ + 2.5σ deviation (min 50ms buffer)</div>
             </div>
           </div>
 

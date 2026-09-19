@@ -1,4 +1,5 @@
 const incidentService = require('../services/incident.service');
+const { UnauthorizedError } = require('../utils/errors');
 
 class IncidentController {
   /**
@@ -6,6 +7,10 @@ class IncidentController {
    */
   async getIncidents(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const filters = {
         severity: req.query.severity,
         status: req.query.status,
@@ -17,8 +22,8 @@ class IncidentController {
 
       const incidents = await incidentService.getIncidents(
         filters,
-        req.user?.id,
-        req.user?.role === 'ADMIN'
+        req.user.id,
+        req.user.role === 'ADMIN'
       );
 
       res.json({
@@ -35,11 +40,15 @@ class IncidentController {
    */
   async getIncidentById(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { id } = req.params;
       const incident = await incidentService.getIncidentById(
         id,
-        req.user?.id,
-        req.user?.role === 'ADMIN'
+        req.user.id,
+        req.user.role === 'ADMIN'
       );
 
       res.json({
@@ -56,6 +65,10 @@ class IncidentController {
    */
   async updateStatus(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { id } = req.params;
       const { status } = req.body;
 
@@ -75,6 +88,10 @@ class IncidentController {
    */
   async acknowledgeIncident(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { id } = req.params;
       const updated = await incidentService.updateStatus(id, 'INVESTIGATING', req.user);
 
@@ -92,6 +109,10 @@ class IncidentController {
    */
   async resolveIncident(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { id } = req.params;
       const updated = await incidentService.updateStatus(id, 'RESOLVED', req.user);
 
@@ -110,6 +131,10 @@ class IncidentController {
    */
   async simulateIncident(req, res, next) {
     try {
+      if (!req.user) {
+        throw new UnauthorizedError('User authentication required');
+      }
+
       const { apiId, title, description, severity } = req.body;
       if (!apiId) {
         return res.status(400).json({ success: false, message: 'apiId is required' });

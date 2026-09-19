@@ -1,7 +1,7 @@
 const prisma = require('../config/database');
 const logger = require('../utils/logger');
 const { NotFoundError, ForbiddenError } = require('../utils/errors');
-const { emitMetricUpdated } = require('../websocket/socket');
+const { emitMetricUpdated, emitInfraEvent } = require('../websocket/socket');
 const anomalyService = require('./anomaly.service');
 const { cache } = require('../config/redis');
 
@@ -25,6 +25,14 @@ class MonitoringService {
       throw new NotFoundError(`API not found`);
     }
 
+    emitInfraEvent({
+      stage: 'INGEST',
+      type: 'TELEMETRY_INGEST',
+      label: `POST /telemetry -> ${(method || 'GET').toUpperCase()} ${endpoint || api.name}`,
+      status: 'active',
+      details: { apiId, statusCode, responseTime }
+    });
+
     const eventTime = timestamp ? new Date(timestamp) : new Date();
 
     // 2. Persist raw telemetry
@@ -38,6 +46,14 @@ class MonitoringService {
         errorMessage: errorMessage || null,
         timestamp: eventTime
       }
+    });
+
+    emitInfraEvent({
+      stage: 'DATABASE',
+      type: 'MONGODB_WRITE',
+      label: `Persisted RequestMetric in MongoDB (${responseTime}ms)`,
+      status: 'success',
+      details: { metricId: metric.id, apiId }
     });
 
     // 3. If it is an error status (>= 400), also persist an entry in the Log table
@@ -98,11 +114,27 @@ class MonitoringService {
     const p95Idx = Math.floor(latencies.length * 0.95);
     const p95Latency = latencies[p95Idx] || latencies[latencies.length - 1];
 
+    emitInfraEvent({
+      stage: 'PROCESSING',
+      type: 'METRIC_EVALUATION',
+      label: `Evaluated live window for API ${api.name || api.id} (${total} reqs)`,
+      status: 'active',
+      details: { apiId: api.id, total, errorRate, p95Latency }
+    });
+
     // Emit live WebSocket update
     emitMetricUpdated(api.id, api.websiteId, {
       requestsCount: total,
       errorRate,
       p95Latency
+    });
+
+    emitInfraEvent({
+      stage: 'WEBSOCKET',
+      type: 'METRIC_BROADCAST',
+      label: `Broadcast live metrics update for API ${api.name || api.id}`,
+      status: 'success',
+      details: { apiId: api.id, websiteId: api.websiteId }
     });
 
     // Trigger statistical anomaly check

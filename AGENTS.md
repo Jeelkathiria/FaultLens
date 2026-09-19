@@ -55,3 +55,41 @@ This isolation must apply to:
 
 ### Telemetry Security:
 The telemetry endpoint (`POST /api/v1/telemetry`) must strictly verify the API Key → User → Website → API ownership chain, rather than accepting an `apiId` and trusting it. If the API does not belong to the authenticated key holder, reject with 404 (Resource Not Found) to avoid leaking the existence of other tenants' APIs.
+
+---
+
+## DATA AUTHENTICITY RULE — NON-NEGOTIABLE
+
+FaultLens must never generate synthetic, placeholder, demo, or fallback business/monitoring data in production UI.
+
+Never use fallback values such as:
+- 12,400 requests
+- 120ms latency
+- 17.8% error rate
+- fake endpoints
+- fake logs
+- fake incidents
+- fake uptime
+- fake traffic
+- fake platform throughput
+
+If no real data exists, return the correct zero/empty/unknown state.
+
+Use:
+- `0` for genuine count metrics
+- `0%` for error rate when there are genuinely zero requests
+- `—` for latency/percentiles when there are no measurements
+- `UNKNOWN` for health before the first monitoring check
+- empty arrays `[]` for lists with no records
+
+Never populate the UI merely to make charts/cards look realistic.
+
+Every displayed monitoring number must be traceable to:
+1. A MongoDB record,
+2. A real HTTP/API measurement,
+3. Real Node.js process telemetry,
+4. Real MongoDB/Redis/BullMQ telemetry, or
+5. A calculation derived exclusively from those sources.
+
+Do not create mock data, random data, hardcoded demo values, synthetic endpoint names, or fallback business metrics.
+

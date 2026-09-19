@@ -140,11 +140,11 @@ export const WebsitesPage = () => {
                       <div className="text-xs font-mono text-slate-400 mt-0.5">{website.displayUrl || website.url || 'N/A'}</div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 py-3 border-y border-[#1E2633] my-3">
+                    <div className="grid grid-cols-3 gap-2 py-3 border-y border-[#1E2633] my-3">
                       <div>
                         <div className="text-[10px] text-slate-500 uppercase tracking-wider">APIs</div>
                         <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
-                          {website.apiCount !== undefined ? `${website.apiCount} APIs` : 'N/A'}
+                          {website.apiCount !== undefined ? `${website.apiCount}` : '0'}
                         </div>
                       </div>
                       <div>
@@ -161,6 +161,14 @@ export const WebsitesPage = () => {
                           {formatUptime(website.uptime)}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wider">Response</div>
+                        <div className="text-sm font-bold font-mono text-slate-200 mt-0.5">
+                          {website.lastResponseTime !== null && website.lastResponseTime !== undefined
+                            ? `${website.lastResponseTime}ms`
+                            : '—'}
+                        </div>
+                      </div>
                     </div>
 
                     {website.activeIncidents > 0 && (
@@ -172,9 +180,9 @@ export const WebsitesPage = () => {
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5 font-mono">
                       <span>Uptime Timeline</span>
-                      <span>Last checked: {website.lastChecked || 'N/A'}</span>
+                      <span>Last checked: {website.lastChecked || 'Never'}</span>
                     </div>
                     <UptimeBar history={website.uptimeHistory} barsCount={36} />
                   </div>
@@ -191,7 +199,9 @@ export const WebsitesPage = () => {
               <tr>
                 <th className="py-3 px-4">Application</th>
                 <th className="py-3 px-4">Health</th>
+                <th className="py-3 px-4">HTTP Probe</th>
                 <th className="py-3 px-4">APIs</th>
+                <th className="py-3 px-4">Response</th>
                 <th className="py-3 px-4">Rolling Uptime</th>
                 <th className="py-3 px-4">Incidents</th>
                 <th className="py-3 px-4">Last Checked</th>
@@ -201,7 +211,7 @@ export const WebsitesPage = () => {
             <tbody className="divide-y divide-[#1E2633]">
               {filteredWebsites.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center font-mono text-xs text-slate-500">
+                  <td colSpan={9} className="py-10 text-center font-mono text-xs text-slate-500">
                     N/A - No websites available
                   </td>
                 </tr>
@@ -219,8 +229,28 @@ export const WebsitesPage = () => {
                     <td className="py-3 px-4">
                       <StatusBadge status={website.health || 'healthy'} />
                     </td>
+                    <td className="py-3 px-4 font-mono font-medium">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          website.healthStatus === 'UP'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : website.healthStatus === 'DEGRADED'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            : website.healthStatus === 'DOWN'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {website.healthStatus || 'UNKNOWN'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 font-mono font-medium text-slate-200">
-                      {website.apiCount !== undefined ? website.apiCount : 'N/A'}
+                      {website.apiCount !== undefined ? `${website.apiCount}` : '0'}
+                    </td>
+                    <td className="py-3 px-4 font-mono font-medium text-slate-300">
+                      {website.lastResponseTime !== null && website.lastResponseTime !== undefined
+                        ? `${website.lastResponseTime}ms`
+                        : '—'}
                     </td>
                     <td className="py-3 px-4 font-mono font-bold text-slate-200">
                       {formatUptime(website.uptime)}
@@ -232,7 +262,7 @@ export const WebsitesPage = () => {
                         <span className="text-slate-500">0</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-slate-400">{website.lastChecked || 'N/A'}</td>
+                    <td className="py-3 px-4 text-slate-400 font-mono">{website.lastChecked || 'Never'}</td>
                     <td className="py-3 px-4 text-right">
                       <button className="text-indigo-400 hover:text-indigo-300 font-medium">
                         View Details →

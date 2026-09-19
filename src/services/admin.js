@@ -21,6 +21,14 @@ export const adminService = {
     return api.get('/admin/system-health');
   },
 
+  getInfrastructure() {
+    return api.get('/admin/infrastructure');
+  },
+
+  getQueueJobs(name) {
+    return api.get(`/admin/infrastructure/queues/${encodeURIComponent(name)}/jobs`);
+  },
+
   getDashboardSummary() {
     return api.get('/dashboard/summary');
   }

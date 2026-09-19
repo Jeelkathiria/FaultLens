@@ -12,8 +12,25 @@ const websiteSchema = new mongoose.Schema(
       enum: ['PRODUCTION', 'STAGING', 'DEVELOPMENT'],
       default: 'PRODUCTION'
     },
-    status: { type: String, default: 'healthy' }, // healthy, degraded, critical
-    description: { type: String, default: null }
+    status: { type: String, default: 'healthy' }, // overall: healthy, degraded, critical
+    description: { type: String, default: null },
+    // Website-level HTTP Monitoring configuration and state
+    monitoringEnabled: { type: Boolean, default: true },
+    monitoringInterval: { type: Number, default: 60 }, // interval in seconds
+    monitoringTimeout: { type: Number, default: 10 }, // timeout in seconds
+    expectedStatusCodes: { type: [Number], default: [200] },
+    healthStatus: {
+      type: String,
+      enum: ['UP', 'DEGRADED', 'DOWN', 'UNKNOWN'],
+      default: 'UNKNOWN'
+    },
+    lastCheckedAt: { type: Date, default: null },
+    lastSuccessfulCheckAt: { type: Date, default: null },
+    lastResponseTime: { type: Number, default: null },
+    lastStatusCode: { type: Number, default: null },
+    lastError: { type: String, default: null },
+    consecutiveFailures: { type: Number, default: 0 },
+    sslValid: { type: Boolean, default: null }
   },
   {
     timestamps: true,

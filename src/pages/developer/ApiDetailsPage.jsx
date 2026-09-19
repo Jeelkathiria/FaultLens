@@ -34,8 +34,8 @@ export const ApiDetailsPage = () => {
   const [timeRange, setTimeRange] = useState('24H');
   const [isChecking, setIsChecking] = useState(false);
 
-  const website = websites.find(w => w.id === websiteId) || websites[0];
-  const api = apis.find(a => a.id === apiId) || apis[0];
+  const api = apis.find(a => a.id === apiId);
+  const website = websites.find(w => w.id === (websiteId || api?.websiteId));
 
   const handleCheckNow = async () => {
     if (isChecking || !api) return;
@@ -57,8 +57,8 @@ export const ApiDetailsPage = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>Back to {website?.name || 'Websites'}</span>
         </Link>
-        <div className="p-12 text-center text-xs font-mono text-slate-500 border border-[#1E2633] rounded-xl bg-[#0F141D]">
-          N/A - API endpoint not found or no API data available.
+        <div className="p-12 text-center text-xs font-mono text-slate-400 border border-[#1E2633] rounded-xl bg-[#0F141D]">
+          API endpoint not found. The requested API does not exist or has been removed.
         </div>
       </div>
     );

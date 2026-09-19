@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFaultLens } from '../../context/FaultLensContext';
 import { StatCard } from '../../components/common/StatCard';
+import { adminService } from '../../services/admin';
 import {
   Users,
   Globe,
@@ -27,16 +28,34 @@ import {
 export const AdminDashboardPage = () => {
   const navigate = useNavigate();
   const { adminStats, switchRole } = useFaultLens();
+  const [platformTraffic, setPlatformTraffic] = useState([]);
+  const [eventsPerSec, setEventsPerSec] = useState(0);
 
-  const platformTraffic = [
-    { time: '00:00', throughput: 3200 },
-    { time: '04:00', throughput: 2800 },
-    { time: '08:00', throughput: 4600 },
-    { time: '12:00', throughput: 5900 },
-    { time: '16:00', throughput: 6400 },
-    { time: '20:00', throughput: 5100 },
-    { time: '23:59', throughput: 4210 },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+    async function loadThroughput() {
+      try {
+        const res = await adminService.getSystemHealth();
+        if (isMounted && res) {
+          if (Array.isArray(res.hourlyThroughput)) {
+            setPlatformTraffic(res.hourlyThroughput);
+          }
+          if (res.systemMetrics?.eventsPerSec !== undefined) {
+            setEventsPerSec(res.systemMetrics.eventsPerSec);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load admin throughput:', err);
+      }
+    }
+
+    loadThroughput();
+    const interval = setInterval(loadThroughput, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -69,8 +88,6 @@ export const AdminDashboardPage = () => {
           value={adminStats.usersCount}
           subtitle="Registered accounts"
           icon={Users}
-          trend="+4 this week"
-          trendDirection="up"
           color="indigo"
         />
         <StatCard
@@ -78,8 +95,6 @@ export const AdminDashboardPage = () => {
           value={adminStats.websitesCount}
           subtitle="Monitored domains"
           icon={Globe}
-          trend="+12% YoY"
-          trendDirection="up"
           color="slate"
         />
         <StatCard
@@ -87,7 +102,6 @@ export const AdminDashboardPage = () => {
           value={adminStats.apisCount}
           subtitle="Active endpoints"
           icon={Layers}
-          trend="3.8k checks/sec"
           color="slate"
         />
         <StatCard
@@ -95,7 +109,6 @@ export const AdminDashboardPage = () => {
           value={adminStats.activeIncidentsCount}
           subtitle="Platform-wide"
           icon={AlertOctagon}
-          trendDirection="down"
           color="red"
         />
       </div>
@@ -105,11 +118,11 @@ export const AdminDashboardPage = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-sm font-semibold text-slate-100">Global Telemetry Ingest Throughput</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Aggregated events/sec across all tenant probe pipelines</p>
+            <p className="text-xs text-slate-400 mt-0.5">Aggregated events/hour across all tenant probe pipelines (last 24h)</p>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>4,210 Events / Sec</span>
+            <span>{eventsPerSec.toLocaleString()} Events / Sec</span>
           </div>
         </div>
 
@@ -127,7 +140,7 @@ export const AdminDashboardPage = () => {
               <YAxis stroke="#64748B" fontSize={11} tickLine={false} tickFormatter={(v) => `${v}`} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#0F141D', borderColor: '#1E2633', borderRadius: '8px' }}
-                formatter={(val) => [`${val.toLocaleString()} events/s`, 'Throughput']}
+                formatter={(val) => [`${val.toLocaleString()} events`, 'Throughput']}
               />
               <Area
                 type="monotone"
